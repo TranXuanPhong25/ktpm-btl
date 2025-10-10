@@ -26,28 +26,29 @@ router.post("/register", async (req, res) => {
     res.status(500).json({ error: error.message })
   }
 })
-
-// Login a user
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body
+    const { email, password } = req.body;
 
-    const user = await User.findOne({ email })
+    const user = await User.findOne({ email });
     if (!user) {
-      res.status(400).json({ error: "No user with this email was found" })
+      return res.status(400).json({ error: "No user with this email was found" });
     }
 
-    const isMatch = await argon2.verify(user.password, password)
-    if (!isMatch) return res.status(400).json({ msg: "Invalid credentials" })
+    const isMatch = await argon2.verify(user.password, password);
+    if (!isMatch) {
+      return res.status(400).json({ msg: "Invalid credentials" });
+    }
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
       expiresIn: "1h",
-    })
+    });
 
-    res.json({ token })
+    return res.json({ token });
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    console.error(error);
+    return res.status(500).json({ error: error.message });
   }
-})
+});
 
-module.exports = router
+module.exports = router;

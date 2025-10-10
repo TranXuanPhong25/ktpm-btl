@@ -15,9 +15,9 @@ router.post("/", async (req, res) => {
       stock,
     })
     await newProduct.save()
-    res.status(201).json(newProduct)
+    return res.status(201).json(newProduct)
   } catch (err) {
-    res.status(500).send("Server error")
+    return res.status(500).send(err.message)
   }
 })
 
@@ -38,8 +38,8 @@ router.get("/:id", async (req, res) => {
     if (!product) return res.status(404).json({ msg: "Product not found" })
     res.json(product)
   } catch (err) {
-    res.status(500).send("Server error")
-  }
+    res.status(500).send(err.message)
+  } 
 })
 
 // Update Product
@@ -60,9 +60,9 @@ router.put("/:id", async (req, res) => {
 
     if (!updatedProduct)
       return res.status(404).json({ msg: "Product not found" })
-    res.json(updatedProduct)
+    return res.json(updatedProduct)
   } catch (err) {
-    res.status(500).send("Server error")
+    return res.status(500).send(err.message)
   }
 })
 
