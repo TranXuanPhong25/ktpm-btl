@@ -1,14 +1,3 @@
-# ⭐️ [Scalable E-commerce Backend (Microservices)](https://roadmap.sh/projects/scalable-ecommerce-platform)
-
-## Tech Stack
-
-- Node.js
-- Express.js
-- MongoDB
-- Docker
-- Nginx
-- Kubernetes
-- Stripe
 
 ## Services & Features
 
@@ -48,6 +37,3 @@ docker compose up --build
 
 Here `--build` is used to build the image again if there are any changes in the code.
 
-## Github Actions (CI/CD) Requirements
-
-- Add `DOCKER_USERNAME` & `DOCKER_PASSWORD` to github secrets to push the image to docker hub.
