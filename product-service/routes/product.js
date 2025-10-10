@@ -4,7 +4,7 @@ const Product = require("../models/product")
 const router = express.Router()
 
 // Create Product
-router.post("/create", async (req, res) => {
+router.post("/", async (req, res) => {
   const { name, description, price, category, stock } = req.body
   try {
     const newProduct = new Product({
@@ -77,4 +77,19 @@ router.delete("/:id", async (req, res) => {
   }
 })
 
+router.put("/:id/deduction", async (req, res) => {
+  const { quantity } = req.body
+  try {
+    const product = await Product.findById(req.params.id)
+    if (!product) return res.status(404).json({ msg: "Product not found" })
+    if (product.stock < quantity)
+      return res.status(400).json({ msg: "Insufficient stock" })
+
+    product.stock -= quantity
+    await product.save()
+    res.json(product)
+  } catch (err) {
+    res.status(500).send("Server error")
+  }
+})
 module.exports = router

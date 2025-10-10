@@ -8,7 +8,7 @@ const PRODUCT_SERVICE_URI =
   process.env.PRODUCT_SERVICE_URI || "http://localhost:5001"
 
 // Add Item to Cart
-router.post("/:userId/add", async (req, res) => {
+router.post("/:userId/items", async (req, res) => {
   const { userId } = req.params
   const { productId, quantity } = req.body
 
@@ -38,7 +38,7 @@ router.post("/:userId/add", async (req, res) => {
     await cart.save()
     res.status(201).json(cart)
   } catch (err) {
-    res.status(500).send("Server error")
+    res.status(500).send(err.message)
   }
 })
 
@@ -46,16 +46,21 @@ router.post("/:userId/add", async (req, res) => {
 router.get("/:userId", async (req, res) => {
   const { userId } = req.params
   try {
-    const cart = await Cart.findOne({ userId })
-    if (!cart) return res.status(404).json({ msg: "Cart not found" })
+    let cart = await Cart.findOne({ userId })
+    if (!cart) {
+      cart = new Cart({ userId, items: [] })
+      await cart.save()
+    }
+
+    
     res.json(cart)
   } catch (err) {
-    res.status(500).send("Server error")
+    res.status(500).send(err.message)
   }
 })
 
 // Remove Item from Cart
-router.delete("/:userId/remove/:productId", async (req, res) => {
+router.delete("/:userId/items/:productId", async (req, res) => {
   const { userId, productId } = req.params
   try {
     const cart = await Cart.findOne({ userId })
@@ -71,7 +76,7 @@ router.delete("/:userId/remove/:productId", async (req, res) => {
 })
 
 // Update Item Quantity
-router.put("/:userId/update/:productId", async (req, res) => {
+router.put("/:userId/items/:productId", async (req, res) => {
   const { userId, productId } = req.params
   const { quantity } = req.body
 
@@ -95,4 +100,18 @@ router.put("/:userId/update/:productId", async (req, res) => {
   }
 })
 
+router.delete("/:userId", async (req, res) => {
+  const { userId } = req.params
+  try {
+    const cart = await Cart.findOne({ userId })
+    if (!cart) return res.status(404).json({ msg: "Cart not found" })
+
+    cart.items = []
+
+    await cart.save()
+    res.json(cart)
+  } catch (err) {
+    res.status(500).send("Server error")
+  }
+})
 module.exports = router

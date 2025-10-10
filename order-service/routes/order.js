@@ -14,7 +14,7 @@ router.post("/:userId", async (req, res) => {
 
   try {
     // Check if products are available
-    const productChecks = await Promise.all(
+    const productChecks = await Promise.all(  
       items.map(async (item) => {
         const product = await axios.get(
           `${PRODUCT_SERVICE_URI}/api/products/${item.productId}`
@@ -40,7 +40,7 @@ router.post("/:userId", async (req, res) => {
     await Promise.all(
       items.map(async (item) => {
         await axios.put(
-          `${PRODUCT_SERVICE_URI}/api/products/${item.productId}/deduct`,
+          `${PRODUCT_SERVICE_URI}/api/products/${item.productId}/deduction`,
           {
             quantity: item.quantity,
           }
@@ -50,7 +50,7 @@ router.post("/:userId", async (req, res) => {
 
     res.status(201).json(order)
   } catch (err) {
-    res.status(500).send("Server error")
+    res.status(500).send(err.message)
   }
 })
 

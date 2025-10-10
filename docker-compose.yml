@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   user-service:
     build: ./user-service
@@ -12,8 +10,8 @@ services:
       - ecommerce-network
     depends_on:
       - mongo
-    deploy:
-      replicas: 2
+    # deploy:
+    #   replicas: 2
 
   product-service:
     build: ./product-service
@@ -25,8 +23,8 @@ services:
       - ecommerce-network
     depends_on:
       - mongo
-    deploy:
-      replicas: 2
+    # deploy:
+    #   replicas: 2
 
   shopping-cart-service:
     build: ./shopping-cart-service
@@ -34,12 +32,14 @@ services:
       - 5002:5002
     environment:
       - MONGO_URI=${MONGO_URI_CART}
+      - PRODUCT_SERVICE_URI=http://product-service:5001
+      - PORT=5002
     networks:
       - ecommerce-network
     depends_on:
       - mongo
-    deploy:
-      replicas: 2
+    # deploy:
+    #   replicas: 2
 
   order-service:
     build: ./order-service
@@ -47,12 +47,13 @@ services:
       - 5003:5003
     environment:
       - MONGO_URI=${MONGO_URI_ORDER}
+      - PRODUCT_SERVICE_URI=http://product-service:5001
     networks:
       - ecommerce-network
     depends_on:
       - mongo
-    deploy:
-      replicas: 2
+    # deploy:
+    #   replicas: 2
 
   payment-service:
     build: ./payment-service
@@ -65,8 +66,8 @@ services:
       - ecommerce-network
     depends_on:
       - mongo
-    deploy:
-      replicas: 2
+    # deploy:
+    #   replicas: 2
 
   notification-service:
     build: ./notification-service
@@ -89,6 +90,16 @@ services:
       - mongo-data:/data/db
     networks:
       - ecommerce-network
+
+  client:
+    build: ./client
+    ports:
+      - "3000:3000"
+
+    networks:
+      - ecommerce-network
+    depends_on:
+      - nginx
 
   nginx:
     image: nginx:latest
