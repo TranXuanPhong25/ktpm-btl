@@ -1,0 +1,12 @@
+# Ignore all JSON result files
+*.json
+
+# Ignore all text summary files
+*_summary.txt
+
+# Keep the README
+!README.md
+
+# Ignore temporary files
+*.tmp
+*.log
