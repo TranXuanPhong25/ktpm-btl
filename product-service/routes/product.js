@@ -84,12 +84,16 @@ router.put("/:id/deduction", async (req, res) => {
     if (!product) return res.status(404).json({ msg: "Product not found" })
     if (product.stock < quantity)
       return res.status(400).json({ msg: "Insufficient stock" })
-
-    product.stock -= quantity
-    await product.save()
-    res.json(product)
+    // t....
+    const updatedProduct = await Product.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { stock: -quantity } },
+      { new: true }
+    )
+    
+    res.json(updatedProduct)
   } catch (err) {
-    res.status(500).send("Server error")
+    res.status(500).send(err.message)
   }
 })
 module.exports = router
