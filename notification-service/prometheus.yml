@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 5s # Each target is scraped every 5 seconds.
+
+scrape_configs:
+  - job_name: "node_app"
+    static_configs:
+      - targets: ["host.docker.internal:9901"]

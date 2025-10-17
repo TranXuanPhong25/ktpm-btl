@@ -1,0 +1,9 @@
+FROM envoyproxy/envoy:v1.31-latest
+
+COPY envoy.yml /etc/envoy/envoy.yml
+
+# COPY certs /etc/envoy/certs/      
+
+EXPOSE 8080 9901
+
+CMD ["envoy", "-c", "/etc/envoy/envoy.yml", "--service-cluster", "test-express-proxy", "--log-level", "info"]

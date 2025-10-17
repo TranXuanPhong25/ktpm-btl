@@ -1,0 +1,40 @@
+services:
+  noti-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: noti-service
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    networks:
+      - envoynet
+
+  envoy:
+    build:
+      context: .
+      dockerfile: Dockerfile.envoy
+    container_name: envoy
+    ports:
+      - "8080:8080"
+      - "9901:9901"
+    depends_on:
+      - noti-service
+      - jaeger-service
+    networks:
+      - envoynet
+
+  jaeger-service:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686" # Jaeger UI
+      - "4317:4317" # OpenTelemetry gRPC
+      - "4318:4318" # OpenTelemetry HTTP
+
+    networks:
+      - envoynet
+
+networks:
+  envoynet:
+    driver: bridge
