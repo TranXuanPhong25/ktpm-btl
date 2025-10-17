@@ -131,6 +131,11 @@ services:
       - shopping-cart-service
       - order-service
       - payment-service
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 500mb
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
     container_name: cadvisor
