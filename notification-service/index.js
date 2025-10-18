@@ -1,17 +1,19 @@
-const express = require("express")
-const dotenv = require("dotenv")
-const notificationRoutes = require("./routes/notification")
+require("./telemetry"); // Initialize telemetry as the first import
 
-dotenv.config()
+const express = require("express");
+const dotenv = require("dotenv");
+const notificationRoutes = require("./routes/notification");
 
-const app = express()
-app.use(express.json())
+dotenv.config();
+
+const app = express();
+app.use(express.json());
 
 // routes
-app.use("/api/notification", notificationRoutes)
+app.use("/api/notification", notificationRoutes);
 
-const PORT = process.env.PORT || 5005
+const PORT = process.env.PORT || 5005;
 
 app.listen(PORT, () =>
   console.log(`Notification Service running on port ${PORT}`)
-)
+);

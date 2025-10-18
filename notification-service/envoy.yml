@@ -24,6 +24,17 @@ static_resources:
                   - name: envoy.filters.http.router
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+                tracing:
+                  provider:
+                    name: envoy.tracers.opentelemetry
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.config.trace.v3.OpenTelemetryConfig
+                      grpc_service:
+                        envoy_grpc:
+                          cluster_name: jaeger
+                      service_name: envoy-proxy
+
   clusters:
     - name: notification_service
       connect_timeout: 0.25s
@@ -37,7 +48,7 @@ static_resources:
                   address:
                     socket_address:
                       address: noti-service
-                      port_value: 3000
+                      port_value: 5005
 
     - name: jaeger
       connect_timeout: 0.25s
@@ -59,13 +70,3 @@ admin:
     socket_address:
       address: 0.0.0.0
       port_value: 9901
-
-tracing:
-  http:
-    name: envoy.tracers.opentelemetry
-    typed_config:
-      "@type": type.googleapis.com/envoy.config.trace.v3.OpenTelemetryConfig
-      grpc_service:
-        envoy_grpc:
-          cluster_name: otel_collector
-      service_name: envoy-proxy
