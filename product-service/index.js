@@ -1,17 +1,17 @@
-const express = require("express")
-const dotenv = require("dotenv")
-const mongoose = require("mongoose")
-const productRoutes = require("./routes/product")
+const express = require("express");
+const dotenv = require("dotenv");
+const mongoose = require("mongoose");
+const productRoutes = require("./routes/product");
 
-const PORT = process.env.PORT || 5001
+const PORT = process.env.PORT || 5001;
 
-const app = express()
-dotenv.config()
+const app = express();
+dotenv.config();
 
-app.use(express.json())
+app.use(express.json());
 
 // Routes
-app.use("/api/products", productRoutes)
+app.use("/api/products", productRoutes);
 
 mongoose
   .connect(process.env.MONGO_URI, {
@@ -19,11 +19,14 @@ mongoose
     useUnifiedTopology: true,
   })
   .then(() => {
-    console.log("✅ Product Service is Connected to MongoDB")
+    console.log("✅ Product Service is Connected to MongoDB");
     app.listen(PORT, () => {
-      console.log(`Product service is running on port ${PORT}`)
-    })
+      console.log(`Product service is running on port ${PORT}`);
+    });
   })
   .catch((err) => {
-    console.error("🚫 Error connecting to MongoDB -> Product Service", err)
-  })
+    console.error(
+      "🚫 Error connecting to MongoDB -> Product Service: ",
+      err.message
+    );
+  });
