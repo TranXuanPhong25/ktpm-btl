@@ -1,4 +1,4 @@
-const mongoose = require("mongoose")
+const mongoose = require("mongoose");
 
 const paymentSchema = new mongoose.Schema({
   orderId: { type: String, required: true },
@@ -6,6 +6,6 @@ const paymentSchema = new mongoose.Schema({
   status: { type: String, required: true },
   paymentMethod: { type: String, required: true },
   paymentDate: { type: Date, default: Date.now },
-})
+});
 
-module.exports = mongoose.model("Payment", paymentSchema)
+module.exports = mongoose.model("Payment", paymentSchema);

@@ -1,17 +1,17 @@
-const express = require("express")
-const dotenv = require("dotenv")
-const mongoose = require("mongoose")
-const cartRoutes = require("./routes/cart")
+const express = require("express");
+const dotenv = require("dotenv");
+const mongoose = require("mongoose");
+const cartRoutes = require("./routes/cart");
 
-const PORT = process.env.PORT || 5002
+const PORT = process.env.PORT || 5002;
 
-dotenv.config()
-const app = express()
+dotenv.config();
+const app = express();
 
-app.use(express.json())
+app.use(express.json());
 
 // routes
-app.use("/api/cart", cartRoutes)
+app.use("/api/cart", cartRoutes);
 
 mongoose
   .connect(process.env.MONGO_URI, {
@@ -19,14 +19,14 @@ mongoose
     useUnifiedTopology: true,
   })
   .then(() => {
-    console.log("✅ Shopping Cart Service is Connected to MongoDB")
+    console.log("✅ Shopping Cart Service is Connected to MongoDB");
     app.listen(PORT, () => {
-      console.log(`Listening on PORT ${PORT}`)
-    })
+      console.log(`Listening on PORT ${PORT}`);
+    });
   })
   .catch((error) => {
     console.error(
       "🚫 Failed to connect to MongoDB -> Shopping Cart Service",
       error
-    )
-  })
+    );
+  });

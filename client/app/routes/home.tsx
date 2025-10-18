@@ -36,21 +36,27 @@ export default function Home() {
             </Link>
           </div>
         </div>
-        
+
         <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="bg-white p-6 rounded-lg shadow-lg text-center">
             <div className="text-4xl mb-4">🚚</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Free Shipping</h3>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              Free Shipping
+            </h3>
             <p className="text-gray-600">On all orders over $50</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-lg text-center">
             <div className="text-4xl mb-4">🔒</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Secure Payment</h3>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              Secure Payment
+            </h3>
             <p className="text-gray-600">100% secure transactions</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-lg text-center">
             <div className="text-4xl mb-4">⚡</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Fast Delivery</h3>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              Fast Delivery
+            </h3>
             <p className="text-gray-600">Quick and reliable shipping</p>
           </div>
         </div>
