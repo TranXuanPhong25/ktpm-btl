@@ -1,5 +1,5 @@
-const cluster = require('cluster');
-const os = require('os');
+const cluster = require("cluster");
+const os = require("os");
 
 const numCPUs = process.env.NODE_CLUSTER_WORKERS || os.cpus().length;
 
@@ -12,12 +12,12 @@ if (cluster.isMaster) {
     cluster.fork();
   }
 
-  cluster.on('exit', (worker, code, signal) => {
+  cluster.on("exit", (worker, code, signal) => {
     console.log(`Worker ${worker.process.pid} died. Restarting...`);
     cluster.fork();
   });
 } else {
   // Workers share the same TCP connection
-  require('./index.js');
+  require("./index.js");
   console.log(`Worker ${process.pid} started`);
 }
