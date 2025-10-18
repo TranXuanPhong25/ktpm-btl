@@ -15,8 +15,11 @@ app.use("/api/orders", orderRoutes);
 
 mongoose
   .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
+    maxPoolSize: 100, // Tăng từ default 5 → 100
+    minPoolSize: 20, // Min connections luôn active
+    maxIdleTimeMS: 30000, // Keep connections alive 30s
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
   })
   .then(() => {
     console.log("✅ Order Service is Connected to MongoDB");

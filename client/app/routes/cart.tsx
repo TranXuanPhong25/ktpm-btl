@@ -21,7 +21,7 @@ export default function CartPage() {
 
   useEffect(() => {
     if (!user) {
-      navigate('/login');
+      navigate("/login");
       return;
     }
     loadCart();
@@ -29,11 +29,11 @@ export default function CartPage() {
 
   const loadCart = async () => {
     if (!user) return;
-    
+
     try {
       const cartData = await apiClient.getCart(user._id);
       setCart(cartData);
-      
+
       // Fetch product details for each cart item
       const itemsWithProducts = await Promise.all(
         cartData.items.map(async (item: any) => {
@@ -46,11 +46,11 @@ export default function CartPage() {
           }
         })
       );
-      
+
       setCartItems(itemsWithProducts.filter(Boolean) as CartItemWithProduct[]);
     } catch (error: any) {
-      console.error('Failed to load cart:', error);
-      setError(error.message || 'Failed to load cart');
+      console.error("Failed to load cart:", error);
+      setError(error.message || "Failed to load cart");
     } finally {
       setLoading(false);
     }
@@ -58,56 +58,56 @@ export default function CartPage() {
 
   const removeFromCart = async (productId: string) => {
     if (!user) return;
-    
+
     try {
       await apiClient.removeFromCart(user._id, productId);
       await loadCart();
     } catch (error: any) {
-      console.error('Failed to remove from cart:', error);
-      alert(error.message || 'Failed to remove item from cart');
+      console.error("Failed to remove from cart:", error);
+      alert(error.message || "Failed to remove item from cart");
     }
   };
 
   const clearCart = async () => {
     if (!user) return;
-    
-    if (!confirm('Are you sure you want to clear your cart?')) return;
-    
+
+    if (!confirm("Are you sure you want to clear your cart?")) return;
+
     try {
       await apiClient.clearCart(user._id);
       await loadCart();
     } catch (error: any) {
-      console.error('Failed to clear cart:', error);
-      alert(error.message || 'Failed to clear cart');
+      console.error("Failed to clear cart:", error);
+      alert(error.message || "Failed to clear cart");
     }
   };
 
   const checkout = async () => {
     if (!user || !cart || cartItems.length === 0) return;
-    
+
     try {
       const orderData = {
-        items: cartItems.map(item => ({
+        items: cartItems.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
         })),
         totalAmount: calculateTotal(),
       };
-      
+
       const order = await apiClient.createOrder(user._id, orderData);
       await apiClient.clearCart(user._id);
-      
-      alert('Order placed successfully!');
-      navigate('/orders');
+
+      alert("Order placed successfully!");
+      navigate("/orders");
     } catch (error: any) {
-      console.error('Failed to checkout:', error);
-      alert(error.message || 'Failed to place order');
+      console.error("Failed to checkout:", error);
+      alert(error.message || "Failed to place order");
     }
   };
 
   const calculateTotal = () => {
     return cartItems.reduce((total, item) => {
-      return total + (item.product.price * item.quantity);
+      return total + item.product.price * item.quantity;
     }, 0);
   };
 
@@ -144,7 +144,9 @@ export default function CartPage() {
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Shopping Cart</h1>
-          <p className="mt-2 text-gray-600">Review your items before checkout</p>
+          <p className="mt-2 text-gray-600">
+            Review your items before checkout
+          </p>
         </div>
 
         {cartItems.length === 0 ? (
@@ -152,7 +154,7 @@ export default function CartPage() {
             <span className="text-6xl mb-4 block">🛒</span>
             <p className="text-gray-600 mb-4">Your cart is empty</p>
             <button
-              onClick={() => navigate('/products')}
+              onClick={() => navigate("/products")}
               className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
             >
               Continue Shopping
@@ -192,7 +194,7 @@ export default function CartPage() {
                   </div>
                 ))}
               </div>
-              
+
               <button
                 onClick={clearCart}
                 className="mt-4 text-red-600 hover:text-red-700"
@@ -229,7 +231,7 @@ export default function CartPage() {
                   Proceed to Checkout
                 </button>
                 <button
-                  onClick={() => navigate('/products')}
+                  onClick={() => navigate("/products")}
                   className="w-full mt-2 bg-gray-100 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-200 transition"
                 >
                   Continue Shopping

@@ -14,7 +14,7 @@ export default function Orders() {
 
   useEffect(() => {
     if (!user) {
-      navigate('/login');
+      navigate("/login");
       return;
     }
     loadOrders();
@@ -22,13 +22,13 @@ export default function Orders() {
 
   const loadOrders = async () => {
     if (!user) return;
-    
+
     try {
       const data = await apiClient.getOrders(user._id);
       setOrders(data);
     } catch (error: any) {
-      console.error('Failed to load orders:', error);
-      setError(error.message || 'Failed to load orders');
+      console.error("Failed to load orders:", error);
+      setError(error.message || "Failed to load orders");
     } finally {
       setLoading(false);
     }
@@ -36,29 +36,29 @@ export default function Orders() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'confirmed':
-        return 'bg-blue-100 text-blue-800';
-      case 'shipped':
-        return 'bg-purple-100 text-purple-800';
-      case 'delivered':
-        return 'bg-green-100 text-green-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
+      case "pending":
+        return "bg-yellow-100 text-yellow-800";
+      case "confirmed":
+        return "bg-blue-100 text-blue-800";
+      case "shipped":
+        return "bg-purple-100 text-purple-800";
+      case "delivered":
+        return "bg-green-100 text-green-800";
+      case "cancelled":
+        return "bg-red-100 text-red-800";
       default:
-        return 'bg-gray-100 text-gray-800';
+        return "bg-gray-100 text-gray-800";
     }
   };
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -101,9 +101,11 @@ export default function Orders() {
         {orders.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-lg shadow">
             <span className="text-6xl mb-4 block">📦</span>
-            <p className="text-gray-600 mb-4">You haven't placed any orders yet</p>
+            <p className="text-gray-600 mb-4">
+              You haven't placed any orders yet
+            </p>
             <button
-              onClick={() => navigate('/products')}
+              onClick={() => navigate("/products")}
               className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
             >
               Start Shopping
@@ -112,10 +114,7 @@ export default function Orders() {
         ) : (
           <div className="space-y-4">
             {orders.map((order) => (
-              <div
-                key={order._id}
-                className="bg-white rounded-lg shadow p-6"
-              >
+              <div key={order._id} className="bg-white rounded-lg shadow p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">
@@ -125,7 +124,9 @@ export default function Orders() {
                       Placed on {formatDate(order.createdAt)}
                     </p>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(order.status)}`}>
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(order.status)}`}
+                  >
                     {order.status.toUpperCase()}
                   </span>
                 </div>
@@ -135,7 +136,8 @@ export default function Orders() {
                     {order.items.map((item, index) => (
                       <div key={index} className="flex justify-between text-sm">
                         <span className="text-gray-600">
-                          Product ID: {item.productId.slice(-8)} × {item.quantity}
+                          Product ID: {item.productId.slice(-8)} ×{" "}
+                          {item.quantity}
                         </span>
                         {item.price && (
                           <span className="text-gray-900">
@@ -145,9 +147,11 @@ export default function Orders() {
                       </div>
                     ))}
                   </div>
-                  
+
                   <div className="border-t mt-4 pt-4 flex justify-between items-center">
-                    <span className="text-gray-900 font-semibold">Total Amount</span>
+                    <span className="text-gray-900 font-semibold">
+                      Total Amount
+                    </span>
                     <span className="text-xl font-bold text-blue-600">
                       ${order.totalAmount.toFixed(2)}
                     </span>
@@ -158,7 +162,7 @@ export default function Orders() {
                   <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
                     View Details
                   </button>
-                  {order.status === 'pending' && (
+                  {order.status === "pending" && (
                     <button className="text-red-600 hover:text-red-700 text-sm font-medium">
                       Cancel Order
                     </button>

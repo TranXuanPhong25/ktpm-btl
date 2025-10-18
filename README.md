@@ -1,4 +1,3 @@
-
 ## Services & Features
 
 - [x] User Service: Handles user registration & authentication.
@@ -36,4 +35,3 @@ docker compose up --build
 ```
 
 Here `--build` is used to build the image again if there are any changes in the code.
-

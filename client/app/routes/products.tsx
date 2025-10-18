@@ -24,8 +24,8 @@ export default function Products() {
       const data = await apiClient.getProducts();
       setProducts(data);
     } catch (error: any) {
-      console.error('Failed to load products:', error);
-      setError(error.message || 'Failed to load products');
+      console.error("Failed to load products:", error);
+      setError(error.message || "Failed to load products");
     } finally {
       setLoading(false);
     }
@@ -33,8 +33,8 @@ export default function Products() {
 
   const addToCart = async (productId: string, productName: string) => {
     if (!user) {
-      alert('Please login to add items to cart');
-      navigate('/login');
+      alert("Please login to add items to cart");
+      navigate("/login");
       return;
     }
 
@@ -42,8 +42,8 @@ export default function Products() {
       await apiClient.addToCart(user._id, { productId, quantity: 1 });
       alert(`${productName} added to cart!`);
     } catch (error: any) {
-      console.error('Failed to add to cart:', error);
-      alert(error.message || 'Failed to add product to cart');
+      console.error("Failed to add to cart:", error);
+      alert(error.message || "Failed to add product to cart");
     }
   };
 
@@ -77,7 +77,7 @@ export default function Products() {
           <h1 className="text-3xl font-bold text-gray-900">Our Products</h1>
           <p className="mt-2 text-gray-600">Discover our amazing collection</p>
         </div>
-        
+
         {products.length === 0 ? (
           <EmptyState
             icon="📦"
@@ -85,7 +85,7 @@ export default function Products() {
             description="Check back later for new products"
             action={{
               label: "Go Home",
-              onClick: () => navigate('/'),
+              onClick: () => navigate("/"),
             }}
           />
         ) : (
@@ -114,8 +114,12 @@ export default function Products() {
                     <span className="text-2xl font-bold text-blue-600">
                       ${product.price.toFixed(2)}
                     </span>
-                    <span className={`text-sm ${product.stock > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+                    <span
+                      className={`text-sm ${product.stock > 0 ? "text-green-600" : "text-red-600"}`}
+                    >
+                      {product.stock > 0
+                        ? `${product.stock} in stock`
+                        : "Out of stock"}
                     </span>
                   </div>
                   <button
@@ -123,7 +127,7 @@ export default function Products() {
                     disabled={product.stock === 0}
                     className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
                   >
-                    {product.stock === 0 ? 'Out of Stock' : '🛒 Add to Cart'}
+                    {product.stock === 0 ? "Out of Stock" : "🛒 Add to Cart"}
                   </button>
                 </div>
               </div>

@@ -10,6 +10,11 @@ services:
       - ecommerce-network
     depends_on:
       - mongo
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
     # deploy:
     #   replicas: 2
 
@@ -19,12 +24,16 @@ services:
       - 5001:5001
     environment:
       - MONGO_URI=${MONGO_URI_PRODUCTS}
+      - NODE_CLUSTER_WORKERS=4
     networks:
       - ecommerce-network
     depends_on:
       - mongo
-    # deploy:
-    #   replicas: 2
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 6G
 
   shopping-cart-service:
     build: ./shopping-cart-service
@@ -38,8 +47,11 @@ services:
       - ecommerce-network
     depends_on:
       - mongo
-    # deploy:
-    #   replicas: 2
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
 
   order-service:
     build: ./order-service
@@ -90,7 +102,11 @@ services:
       - mongo-data:/data/db
     networks:
       - ecommerce-network
-
+    deploy:
+      resources:
+        limits:
+          cpus: '3.0'
+          memory: 3G
   client:
     build: ./client
     ports:
@@ -115,9 +131,62 @@ services:
       - shopping-cart-service
       - order-service
       - payment-service
-
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 500mb
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - ecommerce-network
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - cadvisor
+    networks:
+      - ecommerce-network
+  # influxdb:
+  #   image: influxdb:1.8
+  #   container_name: influxdb
+  #   ports:
+  #     - "8086:8086"
+  #   environment:
+  #     - INFLUXDB_DATA_MAX_SERIES_PER_DATABASE=0
+  #     - INFLUXDB_DATA_MAX_VALUES_PER_TAG=0
+  #   volumes:
+  #     - influxdb-data:/var/lib/influxdb
+  #   networks:
+  #     - ecommerce-network
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana-ktpm-ecom
+    ports:
+      - "1000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - ecommerce-network
+    volumes:
+      - grafana-data:/var/lib/grafana
+      
 volumes:
-  mongo-data:
+  mongo-data: {}
+  influxdb-data: {}
+  grafana-data: {}
 
 networks:
   ecommerce-network:
