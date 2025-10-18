@@ -1,5 +1,3 @@
-require("./telemetry"); // Initialize telemetry as the first import
-
 const express = require("express");
 const dotenv = require("dotenv");
 const notificationRoutes = require("./routes/notification");
