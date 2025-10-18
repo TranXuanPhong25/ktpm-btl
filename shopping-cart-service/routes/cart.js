@@ -105,7 +105,11 @@ router.put("/:userId/items/:productId", async (req, res) => {
     await cart.save();
     res.json(cart);
   } catch (err) {
-    res.status(500).send(`Failed to update item quantity: ${err.message}`);
+    res
+      .status(500)
+      .send(
+        `Failed to update quantity for item ${productId} in cart of user ${userId}: ${err.message}`
+      );
   }
 });
 
