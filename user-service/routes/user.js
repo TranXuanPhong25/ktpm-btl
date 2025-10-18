@@ -34,7 +34,7 @@ router.post("/login", async (req, res) => {
 
     const user = await User.findOne({ email });
     if (!user) {
-      res.status(400).json({ error: "No user with this email was found" });
+      return res.status(400).json({ error: "No user with this email was found" });
     }
 
     const isMatch = await argon2.verify(user.password, password);
