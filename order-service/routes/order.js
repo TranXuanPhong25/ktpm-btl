@@ -52,7 +52,7 @@ router.post("/:userId", async (req, res) => {
 
     res.status(201).json(order);
   } catch (err) {
-    res.status(500).send(err.message);
+    res.status(500).send(`Failed to place a new order: ${err.message}`);
   }
 });
 
@@ -63,7 +63,9 @@ router.get("/:userId", async (req, res) => {
     const orders = await Order.find({ userId });
     res.json(orders);
   } catch (err) {
-    res.status(500).send("Server error");
+    res
+      .status(500)
+      .send(`Failed to get all orders for user ${userId}: ${err.message}`);
   }
 });
 
@@ -75,7 +77,7 @@ router.get("/:userId/:orderId", async (req, res) => {
     if (!order) return res.status(404).json({ msg: "Order not found" });
     res.json(order);
   } catch (err) {
-    res.status(500).send("Server error");
+    res.status(500).send(`Failed to get order ${orderId}: ${err.message}`);
   }
 });
 
@@ -93,7 +95,9 @@ router.put("/:orderId/status", async (req, res) => {
 
     res.json(order);
   } catch (err) {
-    res.status(500).send("Server error");
+    res
+      .status(500)
+      .send(`Failed to update status for order ${orderId}: ${err.message}`);
   }
 });
 

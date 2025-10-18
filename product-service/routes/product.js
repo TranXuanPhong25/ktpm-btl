@@ -15,9 +15,9 @@ router.post("/", async (req, res) => {
       stock,
     });
     await newProduct.save();
-    res.status(201).json(newProduct);
+    return res.status(201).json(newProduct);
   } catch (err) {
-    res.status(500).send("Server error");
+    res.status(500).send(`Failed to create product: ${err.message}`);
   }
 });
 
@@ -25,9 +25,9 @@ router.post("/", async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const products = await Product.find();
-    res.json(products);
+    return res.json(products);
   } catch (err) {
-    res.status(500).send("Server error");
+    res.status(500).send(`Failed to get all products: ${err.message}`);
   }
 });
 
@@ -36,9 +36,11 @@ router.get("/:id", async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ msg: "Product not found" });
-    res.json(product);
+    return res.json(product);
   } catch (err) {
-    res.status(500).send("Server error");
+    res
+      .status(500)
+      .send(`Failed to get product ${req.params.id}: ${err.message}`);
   }
 });
 
@@ -60,9 +62,11 @@ router.put("/:id", async (req, res) => {
 
     if (!updatedProduct)
       return res.status(404).json({ msg: "Product not found" });
-    res.json(updatedProduct);
+    return res.json(updatedProduct);
   } catch (err) {
-    res.status(500).send("Server error");
+    res
+      .status(500)
+      .send(`Failed to update product ${req.params.id}: ${err.message}`);
   }
 });
 
@@ -71,9 +75,11 @@ router.delete("/:id", async (req, res) => {
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
     if (!product) return res.status(404).json({ msg: "Product not found" });
-    res.json({ msg: "Product deleted" });
+    return res.json({ msg: "Product deleted" });
   } catch (err) {
-    res.status(500).send("Server error");
+    res
+      .status(500)
+      .send(`Failed to delete product ${req.params.id}: ${err.message}`);
   }
 });
 
@@ -91,9 +97,14 @@ router.put("/:id/deduction", async (req, res) => {
       { new: true }
     );
 
-    res.json(updatedProduct);
+    return res.json(updatedProduct);
   } catch (err) {
-    res.status(500).send(err.message);
+    res
+      .status(500)
+      .send(
+        `Failed to deduct stock of product ${req.params.id}: ${err.message}`
+      );
   }
 });
+
 module.exports = router;

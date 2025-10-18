@@ -26,5 +26,8 @@ mongoose
     });
   })
   .catch((err) => {
-    console.error("🚫 Failed to connect to Database -> User Service", err);
+    console.error(
+      "🚫 Failed to connect to Database -> User Service: ",
+      err.message
+    );
   });

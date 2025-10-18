@@ -10,8 +10,8 @@ router.post("/email", async (req, res) => {
   try {
     await sendEmail(to, subject, text);
     res.status(200).send("Email sent");
-  } catch (err) {
-    res.status(500).send("Failed to send email");
+  } catch (error) {
+    res.status(500).send(`Failed to send email: ${error.message}`);
   }
 });
 
@@ -22,8 +22,8 @@ router.post("/sms", async (req, res) => {
   try {
     await sendSMS(to, message);
     res.status(200).send("SMS sent");
-  } catch (err) {
-    res.status(500).send("Failed to send SMS");
+  } catch (error) {
+    res.status(500).send(`Failed to send SMS: ${error.message}`);
   }
 });
 

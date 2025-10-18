@@ -23,7 +23,7 @@ router.post("/register", async (req, res) => {
     });
     res.json({ token });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).send(`Failed to register a new user: ${error.message}`);
   }
 });
 
@@ -34,7 +34,9 @@ router.post("/login", async (req, res) => {
 
     const user = await User.findOne({ email });
     if (!user) {
-      res.status(400).json({ error: "No user with this email was found" });
+      return res
+        .status(400)
+        .json({ error: "No user with this email was found" });
     }
 
     const isMatch = await argon2.verify(user.password, password);
@@ -46,7 +48,7 @@ router.post("/login", async (req, res) => {
 
     res.json({ token });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).send(`Failed to login: ${error.message}`);
   }
 });
 
