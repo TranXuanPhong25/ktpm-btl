@@ -1,0 +1,11 @@
+node_modules/
+dist/
+build/
+coverage/
+*.min.js
+**/*.0x/
+.next/
+out/
+public/
+benchmarks/results/
+benchmarks/jmeter/results/

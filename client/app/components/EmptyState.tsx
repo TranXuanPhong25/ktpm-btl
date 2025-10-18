@@ -8,7 +8,12 @@ interface EmptyStateProps {
   };
 }
 
-export function EmptyState({ icon = '📦', title, description, action }: EmptyStateProps) {
+export function EmptyState({
+  icon = "📦",
+  title,
+  description,
+  action,
+}: EmptyStateProps) {
   return (
     <div className="text-center py-12 bg-white rounded-lg shadow">
       <span className="text-6xl mb-4 block">{icon}</span>

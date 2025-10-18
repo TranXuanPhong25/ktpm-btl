@@ -1,53 +1,54 @@
-const express = require("express")
-const User = require("../models/user")
-const argon2 = require("argon2")
-const jwt = require("jsonwebtoken")
+const express = require("express");
+const User = require("../models/user");
+const argon2 = require("argon2");
+const jwt = require("jsonwebtoken");
 
-const router = express.Router()
+const router = express.Router();
 
 // Register a new user
 router.post("/register", async (req, res) => {
   try {
-    const { name, email, password } = req.body
+    const { name, email, password } = req.body;
 
-    let user = await User.findOne({ email })
+    let user = await User.findOne({ email });
     if (user) {
-      return res.status(400).json({ error: "User already exists" })
+      return res.status(400).json({ error: "User already exists" });
     }
 
-    user = new User({ name, email, password })
-    await user.save()
+    user = new User({ name, email, password });
+    await user.save();
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
       expiresIn: "1h",
-    })
-    res.json({ token })
+    });
+    res.json({ token });
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    res.status(500).send(`Failed to register a new user: ${error.message}`);
   }
-})
+});
+
+// Login a user
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(400).json({ error: "No user with this email was found" });
+      return res
+        .status(400)
+        .json({ error: "No user with this email was found" });
     }
 
     const isMatch = await argon2.verify(user.password, password);
-    if (!isMatch) {
-      return res.status(400).json({ msg: "Invalid credentials" });
-    }
+    if (!isMatch) return res.status(400).json({ msg: "Invalid credentials" });
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
 
-    return res.json({ token });
+    res.json({ token });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: error.message });
+    res.status(500).send(`Failed to login: ${error.message}`);
   }
 });
 
