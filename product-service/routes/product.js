@@ -40,7 +40,7 @@ router.get("/:id", async (req, res) => {
   } catch (err) {
     res
       .status(500)
-      .send(`failed to get product ${req.params.id}: ${err.message}`);
+      .send(`Failed to get product ${req.params.id}: ${err.message}`);
   }
 });
 
