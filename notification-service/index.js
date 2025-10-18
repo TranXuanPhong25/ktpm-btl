@@ -1,17 +1,17 @@
-const express = require("express")
-const dotenv = require("dotenv")
-const notificationRoutes = require("./routes/notification")
+const express = require("express");
+const dotenv = require("dotenv");
+const notificationRoutes = require("./routes/notification");
 
-dotenv.config()
+dotenv.config();
 
-const app = express()
-app.use(express.json())
+const app = express();
+app.use(express.json());
 
 // routes
-app.use("/api/notification", notificationRoutes)
+app.use("/api/notification", notificationRoutes);
 
-const PORT = process.env.PORT || 5005
+const PORT = process.env.PORT || 5005;
 
 app.listen(PORT, () =>
   console.log(`Notification Service running on port ${PORT}`)
-)
+);

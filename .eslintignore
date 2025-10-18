@@ -1,0 +1,23 @@
+# Benchmark files
+benchmarks/jmeter/**/*
+benchmarks/results/**/*
+
+# Client React app (if needed, handle separately)
+client/**/*
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+coverage/
+
+# Generated files
+*.min.js
+**/*.0x/
+
+# Environment
+.env
+.env.*
+

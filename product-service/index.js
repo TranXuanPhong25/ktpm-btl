@@ -1,29 +1,33 @@
-const express = require("express")
-const dotenv = require("dotenv")
-const mongoose = require("mongoose")
-const productRoutes = require("./routes/product")
+const express = require("express");
+const dotenv = require("dotenv");
+const mongoose = require("mongoose");
+const productRoutes = require("./routes/product");
 
-const PORT = process.env.PORT || 5001
+const PORT = process.env.PORT || 5001;
 
-const app = express()
-dotenv.config()
+const app = express();
+dotenv.config();
 
-app.use(express.json())
+app.use(express.json());
 
 // Routes
-app.use("/api/products", productRoutes)
-
+app.use("/api/products", productRoutes);
+const mongoURI =
+  process.env.MONGO_URI || "mongodb://localhost:27017/ecommerce-products";
 mongoose
-  .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
+  .connect(mongoURI, {
+    maxPoolSize: 200, // Tăng từ default 5 → 100
+    minPoolSize: 20, // Min connections luôn active
+    maxIdleTimeMS: 30000, // Keep connections alive 30s
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
   })
   .then(() => {
-    console.log("✅ Product Service is Connected to MongoDB")
+    console.log("✅ Product Service is Connected to MongoDB");
     app.listen(PORT, () => {
-      console.log(`Product service is running on port ${PORT}`)
-    })
+      console.log(`Product service is running on port ${PORT}`);
+    });
   })
   .catch((err) => {
-    console.error("🚫 Error connecting to MongoDB -> Product Service", err)
-  })
+    console.error("🚫 Error connecting to MongoDB -> Product Service", err);
+  });

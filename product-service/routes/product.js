@@ -1,11 +1,11 @@
-const express = require("express")
-const Product = require("../models/product")
+const express = require("express");
+const Product = require("../models/product");
 
-const router = express.Router()
+const router = express.Router();
 
 // Create Product
 router.post("/", async (req, res) => {
-  const { name, description, price, category, stock } = req.body
+  const { name, description, price, category, stock } = req.body;
   try {
     const newProduct = new Product({
       name,
@@ -13,38 +13,38 @@ router.post("/", async (req, res) => {
       price,
       category,
       stock,
-    })
-    await newProduct.save()
-    res.status(201).json(newProduct)
+    });
+    await newProduct.save();
+    res.status(201).json(newProduct);
   } catch (err) {
-    res.status(500).send("Server error")
+    res.status(500).send("Server error");
   }
-})
+});
 
 // Get All Products
 router.get("/", async (req, res) => {
   try {
-    const products = await Product.find()
-    res.json(products)
+    const products = await Product.find();
+    res.json(products);
   } catch (err) {
-    res.status(500).send("Server error")
+    res.status(500).send("Server error");
   }
-})
+});
 
 // Get Product by ID
 router.get("/:id", async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id)
-    if (!product) return res.status(404).json({ msg: "Product not found" })
-    res.json(product)
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ msg: "Product not found" });
+    res.json(product);
   } catch (err) {
-    res.status(500).send("Server error")
+    res.status(500).send("Server error");
   }
-})
+});
 
 // Update Product
 router.put("/:id", async (req, res) => {
-  const { name, description, price, category, stock } = req.body
+  const { name, description, price, category, stock } = req.body;
   try {
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
@@ -56,40 +56,44 @@ router.put("/:id", async (req, res) => {
         stock,
       },
       { new: true }
-    )
+    );
 
     if (!updatedProduct)
-      return res.status(404).json({ msg: "Product not found" })
-    res.json(updatedProduct)
+      return res.status(404).json({ msg: "Product not found" });
+    res.json(updatedProduct);
   } catch (err) {
-    res.status(500).send("Server error")
+    res.status(500).send("Server error");
   }
-})
+});
 
 // Delete Product
 router.delete("/:id", async (req, res) => {
   try {
-    const product = await Product.findByIdAndDelete(req.params.id)
-    if (!product) return res.status(404).json({ msg: "Product not found" })
-    res.json({ msg: "Product deleted" })
+    const product = await Product.findByIdAndDelete(req.params.id);
+    if (!product) return res.status(404).json({ msg: "Product not found" });
+    res.json({ msg: "Product deleted" });
   } catch (err) {
-    res.status(500).send("Server error")
+    res.status(500).send("Server error");
   }
-})
+});
 
 router.put("/:id/deduction", async (req, res) => {
-  const { quantity } = req.body
+  const { quantity } = req.body;
   try {
-    const product = await Product.findById(req.params.id)
-    if (!product) return res.status(404).json({ msg: "Product not found" })
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ msg: "Product not found" });
     if (product.stock < quantity)
-      return res.status(400).json({ msg: "Insufficient stock" })
+      return res.status(400).json({ msg: "Insufficient stock" });
+    // t....
+    const updatedProduct = await Product.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { stock: -quantity } },
+      { new: true }
+    );
 
-    product.stock -= quantity
-    await product.save()
-    res.json(product)
+    res.json(updatedProduct);
   } catch (err) {
-    res.status(500).send("Server error")
+    res.status(500).send(err.message);
   }
-})
-module.exports = router
+});
+module.exports = router;
