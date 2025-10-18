@@ -29,7 +29,9 @@ router.post("/:orderId", async (req, res) => {
 
     res.status(201).json(payment);
   } catch (err) {
-    res.status(500).send(`Failed to process a payment for order ${orderId}: ${err.message}`)
+    res
+      .status(500)
+      .send(`Failed to process a payment for order ${orderId}: ${err.message}`);
   }
 });
 
@@ -43,7 +45,7 @@ router.get("/:paymentId", async (req, res) => {
 
     res.json(payment);
   } catch (err) {
-    res.status(500).send(`Failed to get payment ${paymentId}: ${err.message}`)
+    res.status(500).send(`Failed to get payment ${paymentId}: ${err.message}`);
   }
 });
 
@@ -55,7 +57,9 @@ router.get("/order/:orderId", async (req, res) => {
     const payments = await Payment.find({ orderId });
     res.json(payments);
   } catch (err) {
-    res.status(500).send(`Failed to get payment for order ${orderId}: ${err.message}`)
+    res
+      .status(500)
+      .send(`Failed to get payment for order ${orderId}: ${err.message}`);
   }
 });
 

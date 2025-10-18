@@ -124,7 +124,9 @@ router.delete("/:userId", async (req, res) => {
     await cart.save();
     res.json(cart);
   } catch (err) {
-    res.status(500).send(`Failed to clear cart for user ${userId}: ${err.message}`);
+    res
+      .status(500)
+      .send(`Failed to clear cart for user ${userId}: ${err.message}`);
   }
 });
 
