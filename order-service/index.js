@@ -27,6 +27,9 @@ mongoose
       console.log(`Listening on port ${PORT}`);
     });
   })
-  .catch((err) => {
-    console.error("🚫 Failed to connect to MongoDB -> Order Service", err);
+  .catch((error) => {
+    console.error(
+      "🚫 Failed to connect to MongoDB -> Order Service",
+      error.message
+    );
   });

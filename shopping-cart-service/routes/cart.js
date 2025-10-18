@@ -38,7 +38,11 @@ router.post("/:userId/items", async (req, res) => {
     await cart.save();
     res.status(201).json(cart);
   } catch (err) {
-    res.status(500).send(err.message);
+    res
+      .status(500)
+      .send(
+        `Failed to add ${quantity} item ${productId} to cart of user ${userId}: ${err.message}`
+      );
   }
 });
 
@@ -54,7 +58,9 @@ router.get("/:userId", async (req, res) => {
 
     res.json(cart);
   } catch (err) {
-    res.status(500).send(err.message);
+    res
+      .status(500)
+      .send(`Failed to get cart of user ${userId}: ${err.message}`);
   }
 });
 
@@ -70,7 +76,11 @@ router.delete("/:userId/items/:productId", async (req, res) => {
     await cart.save();
     res.json(cart);
   } catch (err) {
-    res.status(500).send("Server error");
+    res
+      .status(500)
+      .send(
+        `Failed to remove item ${productId} from cart of user ${userId}: ${err.message}`
+      );
   }
 });
 
@@ -95,7 +105,11 @@ router.put("/:userId/items/:productId", async (req, res) => {
     await cart.save();
     res.json(cart);
   } catch (err) {
-    res.status(500).send("Server error");
+    res
+      .status(500)
+      .send(
+        `Failed to update quantity for item ${productId} in cart of user ${userId}: ${err.message}`
+      );
   }
 });
 
@@ -110,7 +124,10 @@ router.delete("/:userId", async (req, res) => {
     await cart.save();
     res.json(cart);
   } catch (err) {
-    res.status(500).send("Server error");
+    res
+      .status(500)
+      .send(`Failed to clear cart for user ${userId}: ${err.message}`);
   }
 });
+
 module.exports = router;

@@ -8,4 +8,4 @@ RUN npm install
 COPY . .
 
 EXPOSE 5001
-CMD [ "node", "cluster.js" ]
+CMD [ "node", "index.js" ]
