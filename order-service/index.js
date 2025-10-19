@@ -14,22 +14,22 @@ app.use(express.json());
 app.use("/api/orders", orderRoutes);
 
 mongoose
-  .connect(process.env.MONGO_URI, {
-    maxPoolSize: 100, // Tăng từ default 5 → 100
-    minPoolSize: 20, // Min connections luôn active
-    maxIdleTimeMS: 30000, // Keep connections alive 30s
-    serverSelectionTimeoutMS: 5000,
-    socketTimeoutMS: 45000,
-  })
-  .then(() => {
-    console.log("✅ Order Service is Connected to MongoDB");
-    app.listen(PORT, () => {
-      console.log(`Listening on port ${PORT}`);
-    });
-  })
-  .catch((error) => {
-    console.error(
-      "🚫 Failed to connect to MongoDB -> Order Service",
-      error.message
-    );
-  });
+   .connect(process.env.MONGO_URI, {
+      maxPoolSize: 100, // Tăng từ default 5 → 100
+      minPoolSize: 20, // Min connections luôn active
+      maxIdleTimeMS: 30000, // Keep connections alive 30s
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+   })
+   .then(() => {
+      console.log("✅ Order Service is Connected to MongoDB");
+      app.listen(PORT, () => {
+         console.log(`Listening on port ${PORT}`);
+      });
+   })
+   .catch((error) => {
+      console.error(
+         "🚫 Failed to connect to MongoDB -> Order Service",
+         error.message
+      );
+   });
