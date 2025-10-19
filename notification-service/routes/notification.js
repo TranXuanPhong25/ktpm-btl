@@ -5,26 +5,26 @@ const router = express.Router();
 
 // Send Email Notification
 router.post("/email", async (req, res) => {
-  const { to, subject, text } = req.body;
+   const { to, subject, text } = req.body;
 
-  try {
-    await sendEmail(to, subject, text);
-    res.status(200).send("Email sent");
-  } catch (error) {
-    res.status(500).send(`Failed to send email: ${error.message}`);
-  }
+   try {
+      await sendEmail(to, subject, text);
+      res.status(200).send("Email sent");
+   } catch (error) {
+      res.status(500).send(`Failed to send email: ${error.message}`);
+   }
 });
 
 // Send SMS Notification
 router.post("/sms", async (req, res) => {
-  const { to, message } = req.body;
+   const { to, message } = req.body;
 
-  try {
-    await sendSMS(to, message);
-    res.status(200).send("SMS sent");
-  } catch (error) {
-    res.status(500).send(`Failed to send SMS: ${error.message}`);
-  }
+   try {
+      await sendSMS(to, message);
+      res.status(200).send("SMS sent");
+   } catch (error) {
+      res.status(500).send(`Failed to send SMS: ${error.message}`);
+   }
 });
 
 module.exports = router;

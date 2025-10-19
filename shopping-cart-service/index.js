@@ -14,19 +14,19 @@ app.use(express.json());
 app.use("/api/cart", cartRoutes);
 
 mongoose
-  .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => {
-    console.log("✅ Shopping Cart Service is Connected to MongoDB");
-    app.listen(PORT, () => {
-      console.log(`Listening on PORT ${PORT}`);
-    });
-  })
-  .catch((error) => {
-    console.error(
-      "🚫 Failed to connect to MongoDB -> Shopping Cart Service: ",
-      error.message
-    );
-  });
+   .connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+   })
+   .then(() => {
+      console.log("✅ Shopping Cart Service is Connected to MongoDB");
+      app.listen(PORT, () => {
+         console.log(`Listening on PORT ${PORT}`);
+      });
+   })
+   .catch((error) => {
+      console.error(
+         "🚫 Failed to connect to MongoDB -> Shopping Cart Service: ",
+         error.message
+      );
+   });
