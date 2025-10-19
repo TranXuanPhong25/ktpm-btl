@@ -13,28 +13,25 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.0'
-          memory: 1G
+          cpus: '1.0'
+          memory: 500mb
     # deploy:
     #   replicas: 2
 
   product-service:
     build: ./product-service
-    ports:
-      - 5001:5001
     environment:
       - MONGO_URI=${MONGO_URI_PRODUCTS}
-      - NODE_CLUSTER_WORKERS=4
     networks:
       - ecommerce-network
     depends_on:
       - mongo
     deploy:
+      replicas: 6
       resources:
         limits:
-          cpus: '4.0'
-          memory: 6G
-
+          cpus: '1.0'
+          memory: 500mb
   shopping-cart-service:
     build: ./shopping-cart-service
     ports:
@@ -64,8 +61,12 @@ services:
       - ecommerce-network
     depends_on:
       - mongo
-    # deploy:
-    #   replicas: 2
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 500mb
 
   payment-service:
     build: ./payment-service
