@@ -10,24 +10,52 @@ const PRODUCT_SERVICE_URI =
 // Place a new order
 router.post("/:userId", async (req, res) => {
   const { userId } = req.params;
-  const { items, totalAmount } = req.body;
+  const { items } = req.body;
 
   try {
-    // Check if products are available
-    const productChecks = await Promise.all(
-      items.map(async (item) => {
-        const product = await axios.get(
-          `${PRODUCT_SERVICE_URI}/api/products/${item.productId}`
-        );
-        return product.data && product.data.stock >= item.quantity;
-      })
-    );
-
-    if (productChecks.includes(false)) {
+    if (!items || items.length === 0) {
       return res
         .status(400)
-        .json({ msg: "One or more items are out of stock" });
+        .json({ msg: "Order must contain at least one item" });
     }
+    
+    for (const item of items) {
+      if (!item.productId || !item.quantity || item.quantity <= 0) {
+        return res.status(400).json({ msg: "Invalid item format" });
+      }
+    }
+
+    const products = [];
+
+    const responses = await Promise.all(
+      items.map((item) =>
+        axios.get(`${PRODUCT_SERVICE_URI}/api/products/${item.productId}`)
+      )
+    );
+
+    // Check if products are available
+    for (let i = 0; i < responses.length; i++) {
+      const product = responses[i].data;
+
+      if (!product) {
+        return res.status(404).json({
+          msg: `Product ${items[i].productId} not found`,
+        });
+      }
+
+      if (product.stock < items[i].quantity) {
+        return res.status(400).json({
+          msg: `Product ${product.name} is out of stock`,
+        });
+      }
+
+      products.push(product);
+    }
+
+    const totalAmount = products.reduce(
+      (sum, p, i) => sum + p.price * items[i].quantity,
+      0
+    );
 
     // Create new order
     const order = new Order({
@@ -39,16 +67,25 @@ router.post("/:userId", async (req, res) => {
     await order.save();
 
     // Deduct product stock
-    await Promise.all(
-      items.map(async (item) => {
-        await axios.put(
-          `${PRODUCT_SERVICE_URI}/api/products/${item.productId}/deduction`,
-          {
-            quantity: item.quantity,
-          }
-        );
-      })
-    );
+    try {
+      await Promise.all(
+        items.map(async (item) => {
+          await axios.put(
+            `${PRODUCT_SERVICE_URI}/api/products/${item.productId}/deduction`,
+            {
+              quantity: item.quantity,
+            }
+          );
+        })
+      );
+    } catch (deductError) {
+      // Rollback: Delete the order if stock deduction fails
+      await Order.findByIdAndDelete(order._id);
+      return res.status(500).json({
+        msg: "Failed to deduct stock, order cancelled",
+        error: deductError.message,
+      });
+    }
 
     res.status(201).json(order);
   } catch (err) {

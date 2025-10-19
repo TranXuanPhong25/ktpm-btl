@@ -83,6 +83,7 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+// Deduct stock of product
 router.put("/:id/deduction", async (req, res) => {
   const { quantity } = req.body;
   try {
