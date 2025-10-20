@@ -117,40 +117,61 @@ class ProductRepository {
          throw new Error("updates must be a non-empty array");
       }
 
-      // Start a MongoDB session for transaction
-      const session = await Product.startSession();
-      session.startTransaction();
-
       try {
-         // Prepare bulk operations: only decrement stock if current stock >= requested quantity
-         const operations = updates.map(({ id, quantity }) => ({
+         // Aggregate quantities for duplicate product IDs
+         const aggregatedUpdates = updates.reduce((acc, { id, quantity }) => {
+            if (!acc[id]) {
+               acc[id] = 0;
+            }
+            acc[id] += Number(quantity);
+            return acc;
+         }, {});
+
+         // Convert aggregated map to array of unique products
+         const uniqueUpdates = Object.entries(aggregatedUpdates).map(
+            ([id, quantity]) => ({
+               id,
+               quantity,
+            })
+         );
+
+         // Get unique product IDs
+         const ids = uniqueUpdates.map((update) => update.id);
+         const products = await Product.find({ _id: { $in: ids } });
+
+         // Create a map for easy lookup
+         const productMap = products.reduce((map, product) => {
+            map[product._id.toString()] = product;
+            return map;
+         }, {});
+
+         // Check if all products exist and have sufficient stock
+         for (const { id, quantity } of uniqueUpdates) {
+            const product = productMap[id];
+            if (!product) {
+               throw new Error(`Product with ID ${id} not found`);
+            }
+            if (product.stock < quantity) {
+               throw new Error(
+                  `Insufficient stock for product ${product.name} (ID: ${id}). Available: ${product.stock}, Requested: ${quantity}`
+               );
+            }
+         }
+
+         // Prepare bulk operations with aggregated quantities
+         const operations = uniqueUpdates.map(({ id, quantity }) => ({
             updateOne: {
-               filter: { _id: id, stock: { $gte: quantity } },
+               filter: { _id: id },
                update: { $inc: { stock: -quantity } },
             },
          }));
 
-         // Execute bulk operations within the transaction
-         const result = await Product.bulkWrite(operations, { session });
-
-         // If any update failed (insufficient stock or product not found), throw to rollback
-         if (result.modifiedCount !== updates.length) {
-            throw new Error(
-               "Some products have insufficient stock or not found"
-            );
-         }
-
-         // Commit the transaction
-         await session.commitTransaction();
-         session.endSession();
+         // Execute bulk operations
+         await Product.bulkWrite(operations);
 
          // Return updated products
-         const ids = updates.map((u) => u.id);
          return await Product.find({ _id: { $in: ids } });
       } catch (err) {
-         // Abort transaction on error
-         await session.abortTransaction();
-         session.endSession();
          throw new Error(`Failed to deduct stock in bulk: ${err.message}`);
       }
    }
