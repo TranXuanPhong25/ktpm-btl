@@ -1,6 +1,6 @@
 const express = require("express");
 const dotenv = require("dotenv");
-const mongoose = require("mongoose");
+const database = require("./config/database");
 const orderRoutes = require("./routes/order");
 
 const PORT = process.env.PORT || 5003;
@@ -13,23 +13,25 @@ app.use(express.json());
 // routes
 app.use("/api/orders", orderRoutes);
 
-mongoose
-   .connect(process.env.MONGO_URI, {
-      maxPoolSize: 100, // Tăng từ default 5 → 100
-      minPoolSize: 20, // Min connections luôn active
-      maxIdleTimeMS: 30000, // Keep connections alive 30s
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-   })
+// Database connection and server start
+const mongoURI =
+   process.env.MONGO_URI || "mongodb://localhost:27017/ecommerce-orders";
+
+database
+   .connect(mongoURI)
    .then(() => {
-      console.log("✅ Order Service is Connected to MongoDB");
       app.listen(PORT, () => {
-         console.log(`Listening on port ${PORT}`);
+         console.log(`Order Service is running on port ${PORT}`);
       });
    })
-   .catch((error) => {
-      console.error(
-         "🚫 Failed to connect to MongoDB -> Order Service",
-         error.message
-      );
+   .catch((err) => {
+      console.error("Failed to start Order Service:", err.message);
+      process.exit(1);
    });
+
+// Graceful shutdown
+process.on("SIGINT", async () => {
+   console.log("\nShutting down Order Service...");
+   await database.disconnect();
+   process.exit(0);
+});
