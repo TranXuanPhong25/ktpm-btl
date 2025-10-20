@@ -113,28 +113,44 @@ class ProductRepository {
     * @returns {Promise<Array<Object>>} List of updated products
     */
    async bulkDeductStock(updates) {
+      if (!Array.isArray(updates) || updates.length === 0) {
+         throw new Error("updates must be a non-empty array");
+      }
+
+      // Start a MongoDB session for transaction
+      const session = await Product.startSession();
+      session.startTransaction();
+
       try {
-         if (!Array.isArray(updates) || updates.length === 0) {
-            throw new Error("updates must be a non-empty array");
+         // Prepare bulk operations: only decrement stock if current stock >= requested quantity
+         const operations = updates.map(({ id, quantity }) => ({
+            updateOne: {
+               filter: { _id: id, stock: { $gte: quantity } },
+               update: { $inc: { stock: -quantity } },
+            },
+         }));
+
+         // Execute bulk operations within the transaction
+         const result = await Product.bulkWrite(operations, { session });
+
+         // If any update failed (insufficient stock or product not found), throw to rollback
+         if (result.modifiedCount !== updates.length) {
+            throw new Error(
+               "Some products have insufficient stock or not found"
+            );
          }
 
-         const updatedProducts = await Promise.all(
-            updates.map(async ({ id, quantity }) => {
-               const product = await this.findById(id);
-               if (!product) throw new Error(`Product ${id} not found`);
-               if (product.stock < quantity)
-                  throw new Error(`Insufficient stock for product ${id}`);
+         // Commit the transaction
+         await session.commitTransaction();
+         session.endSession();
 
-               return Product.findByIdAndUpdate(
-                  id,
-                  { $inc: { stock: -quantity } },
-                  { new: true }
-               );
-            })
-         );
-
-         return updatedProducts;
+         // Return updated products
+         const ids = updates.map((u) => u.id);
+         return await Product.find({ _id: { $in: ids } });
       } catch (err) {
+         // Abort transaction on error
+         await session.abortTransaction();
+         session.endSession();
          throw new Error(`Failed to deduct stock in bulk: ${err.message}`);
       }
    }
