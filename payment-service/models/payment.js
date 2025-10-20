@@ -6,6 +6,8 @@ const paymentSchema = new mongoose.Schema({
    status: { type: String, required: true },
    paymentMethod: { type: String, required: true },
    paymentDate: { type: Date, default: Date.now },
+   stripePaymentIntentId: { type: String },
+   errorMessage: { type: String },
 });
 
 module.exports = mongoose.model("Payment", paymentSchema);
