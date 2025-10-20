@@ -125,4 +125,45 @@ router.delete("/:userId", async (req, res) => {
    }
 });
 
+// Delete one or multiple items from cart
+router.delete("/:userId/items", async (req, res) => {
+  const { userId } = req.params;
+  const { productIds } = req.query;
+
+  try {
+    if (!productIds) {
+      return res.status(400).json({ msg: "productIds query parameter is required" });
+    }
+
+    let productIdArray;
+    if (Array.isArray(productIds)) {
+      productIdArray = productIds;
+    } else {
+      try {
+        productIdArray = JSON.parse(productIds);
+      } catch {
+        productIdArray = productIds.split(",").map(id => id.trim());
+      }
+    }
+
+    const cart = await Cart.findOne({ userId });
+    if (!cart) {
+      return res.status(404).json({ msg: "Cart not found" });
+    }
+
+    cart.items = cart.items.filter(
+      (item) => !productIdArray.includes(item.productId)
+    );
+
+    await cart.save();
+    res.json(cart);
+  } catch (err) {
+    res
+      .status(500)
+      .send(
+        `Failed to remove items from cart of user ${userId}: ${err.message}`
+      );
+  }
+});
+
 module.exports = router;
