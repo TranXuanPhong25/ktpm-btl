@@ -43,6 +43,25 @@ router.get("/:id", async (req, res) => {
    }
 });
 
+// Bulk get products by IDs
+router.get("/bulk/get", async (req, res) => {
+   const idsParam = req.query.ids;
+   const productIds = idsParam ? idsParam.split(",") : [];
+
+   try {
+      if (!Array.isArray(productIds) || productIds.length === 0) {
+         return res
+            .status(400)
+            .json({ msg: "Query param 'ids' must be a non-empty list" });
+      }
+
+      const products = await productService.getProductsByIds(productIds);
+      return res.json(products);
+   } catch (err) {
+      res.status(500).json({ msg: err.message });
+   }
+});
+
 // Update Product
 router.put("/:id", async (req, res) => {
    try {
@@ -97,6 +116,32 @@ router.put("/:id/deduction", async (req, res) => {
       ) {
          return res.status(400).json({ msg: err.message });
       }
+      res.status(500).json({ msg: err.message });
+   }
+});
+
+// Bulk deduct stock of multiple products
+router.post("/bulk/deduction", async (req, res) => {
+   const { updates } = req.body; // [{ id, quantity }, ...]
+
+   try {
+      if (!Array.isArray(updates) || updates.length === 0) {
+         return res
+            .status(400)
+            .json({ msg: "updates must be a non-empty array" });
+      }
+
+      const updatedProducts = await productService.bulkDeductStock(updates);
+      return res.json(updatedProducts);
+   } catch (err) {
+      if (
+         err.message.includes("Insufficient stock") ||
+         err.message.includes("not found") ||
+         err.message.includes("Invalid quantity")
+      ) {
+         return res.status(400).json({ msg: err.message });
+      }
+
       res.status(500).json({ msg: err.message });
    }
 });

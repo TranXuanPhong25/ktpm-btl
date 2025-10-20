@@ -65,6 +65,27 @@ class ProductService {
    }
 
    /**
+    * Get multiple products by their IDs
+    * @param {Array<string>} productIds - List of product IDs
+    * @returns {Promise<Array<Object>>} List of found products
+    */
+   async getProductsByIds(productIds) {
+      if (!Array.isArray(productIds) || productIds.length === 0) {
+         throw new Error(
+            "Product IDs are required and must be a non-empty array"
+         );
+      }
+
+      const products = await productRepository.findManyByIds(productIds);
+
+      if (!products || products.length === 0) {
+         throw new Error("No products found");
+      }
+
+      return products;
+   }
+
+   /**
     * Update product with validation
     * @param {string} productId - Product ID
     * @param {Object} updateData - Data to update
@@ -154,6 +175,43 @@ class ProductService {
 
       // Deduct stock
       return await productRepository.deductStock(productId, quantity);
+   }
+
+   /**
+    * Deduct stock from multiple products in bulk with business logic
+    * @param {Array<{ id: string, quantity: number }>} updates - List of productId and quantity
+    * @returns {Promise<Array<Object>>} List of updated products
+    */
+   async bulkDeductStock(updates) {
+      if (!Array.isArray(updates) || updates.length === 0) {
+         throw new Error("updates must be a non-empty array");
+      }
+
+      // Check if product exists and has sufficient stock
+      await Promise.all(
+         updates.map(async ({ id, quantity }) => {
+            if (!id) throw new Error("Product ID is required in updates");
+            if (!quantity || quantity <= 0)
+               throw new Error(`Invalid quantity for product ${id}`);
+
+            const hasEnoughStock = await productRepository.hasStock(
+               id,
+               quantity
+            );
+            if (!hasEnoughStock) {
+               const product = await productRepository.findById(id);
+               if (!product) {
+                  throw new Error(`Product ${id} not found`);
+               }
+               throw new Error(
+                  `Insufficient stock for product ${id}. Available: ${product.stock}, Requested: ${quantity}`
+               );
+            }
+         })
+      );
+
+      // Deduct stock
+      return await productRepository.bulkDeductStock(updates);
    }
 
    /**

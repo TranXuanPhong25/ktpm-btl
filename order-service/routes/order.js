@@ -25,61 +25,54 @@ router.post("/:userId", async (req, res) => {
          }
       }
 
-      const products = [];
-
-      const responses = await Promise.all(
-         items.map((item) =>
-            axios.get(`${PRODUCT_SERVICE_URI}/api/products/${item.productId}`)
-         )
+      // Bulk get products
+      const productIds = items.map((item) => item.productId).join(",");
+      const response = await axios.get(
+         `${PRODUCT_SERVICE_URI}/api/products/bulk/get?ids=${productIds}`
       );
+      const products = response.data;
 
-      // Check if products are available
-      for (let i = 0; i < responses.length; i++) {
-         const product = responses[i].data;
-
-         if (!product) {
-            return res.status(404).json({
-               msg: `Product ${items[i].productId} not found`,
-            });
-         }
-
-         if (product.stock < items[i].quantity) {
-            return res.status(400).json({
-               msg: `Product ${product.name} is out of stock`,
-            });
-         }
-
-         products.push(product);
+      if (!products || products.length !== items.length) {
+         return res.status(404).json({ msg: "Some products not found" });
       }
 
-      const totalAmount = products.reduce(
-         (sum, p, i) => sum + p.price * items[i].quantity,
-         0
-      );
+      // Convert products array to map for O(1) lookup
+      const productMap = Object.fromEntries(products.map(p => [p._id, p]));
+
+      // Check stock and calculate totalAmount in the same loop
+      let totalAmount = 0;
+      for (const item of items) {
+         const product = productMap[item.productId];
+         if (!product) {
+            return res
+               .status(404)
+               .json({ msg: `Product ${item.productId} not found` });
+         }
+         if (product.stock < item.quantity) {
+            return res
+               .status(400)
+               .json({ msg: `Product ${product.name} is out of stock` });
+         }
+         totalAmount += product.price * item.quantity;
+      }
 
       // Create new order
-      const order = new Order({
-         userId,
-         items,
-         totalAmount,
-      });
-
+      const order = new Order({ userId, items, totalAmount });
       await order.save();
 
-      // Deduct product stock
+      // Deduct stock using bulk deduct
       try {
-         await Promise.all(
-            items.map(async (item) => {
-               await axios.put(
-                  `${PRODUCT_SERVICE_URI}/api/products/${item.productId}/deduction`,
-                  {
-                     quantity: item.quantity,
-                  }
-               );
-            })
+         await axios.post(
+            `${PRODUCT_SERVICE_URI}/api/products/bulk/deduction`,
+            {
+               updates: items.map((item) => ({
+                  id: item.productId,
+                  quantity: item.quantity,
+               })),
+            }
          );
       } catch (deductError) {
-         // Rollback: Delete the order if stock deduction fails
+         // Rollback order
          await Order.findByIdAndDelete(order._id);
          return res.status(500).json({
             msg: "Failed to deduct stock, order cancelled",

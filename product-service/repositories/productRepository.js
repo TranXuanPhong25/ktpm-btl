@@ -41,6 +41,19 @@ class ProductRepository {
    }
 
    /**
+    * Find multiple products by their IDs
+    * @param {Array<string>} productIds - List of product IDs
+    * @returns {Promise<Array<Object>>} List of found products
+    */
+   async findManyByIds(productIds) {
+      try {
+         return await Product.find({ _id: { $in: productIds } });
+      } catch (err) {
+         throw new Error(`Failed to get products: ${err.message}`);
+      }
+   }
+
+   /**
     * Update product by ID
     * @param {string} id - Product ID
     * @param {Object} updateData - Data to update
@@ -91,6 +104,38 @@ class ProductRepository {
          throw new Error(
             `Failed to deduct stock of product ${id}: ${err.message}`
          );
+      }
+   }
+
+   /**
+    * Deduct stock from multiple products
+    * @param {Array<{ id: string, quantity: number }>} updates - List of productId and quantity to deduct
+    * @returns {Promise<Array<Object>>} List of updated products
+    */
+   async bulkDeductStock(updates) {
+      try {
+         if (!Array.isArray(updates) || updates.length === 0) {
+            throw new Error("updates must be a non-empty array");
+         }
+
+         const updatedProducts = await Promise.all(
+            updates.map(async ({ id, quantity }) => {
+               const product = await this.findById(id);
+               if (!product) throw new Error(`Product ${id} not found`);
+               if (product.stock < quantity)
+                  throw new Error(`Insufficient stock for product ${id}`);
+
+               return Product.findByIdAndUpdate(
+                  id,
+                  { $inc: { stock: -quantity } },
+                  { new: true }
+               );
+            })
+         );
+
+         return updatedProducts;
+      } catch (err) {
+         throw new Error(`Failed to deduct stock in bulk: ${err.message}`);
       }
    }
 
