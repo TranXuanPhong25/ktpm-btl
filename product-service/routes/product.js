@@ -1,85 +1,80 @@
 const express = require("express");
-const Product = require("../models/product");
+const productService = require("../services/productService");
 
 const router = express.Router();
 
 // Create Product
 router.post("/", async (req, res) => {
-   const { name, description, price, category, stock } = req.body;
    try {
-      const newProduct = new Product({
-         name,
-         description,
-         price,
-         category,
-         stock,
-      });
-      await newProduct.save();
+      const newProduct = await productService.createProduct(req.body);
       return res.status(201).json(newProduct);
    } catch (err) {
-      res.status(500).send(`Failed to create product: ${err.message}`);
+      if (err.message.includes("required") || err.message.includes("must be")) {
+         return res.status(400).json({ msg: err.message });
+      }
+      res.status(500).json({ msg: err.message });
    }
 });
 
 // Get All Products
 router.get("/", async (req, res) => {
    try {
-      const products = await Product.find();
+      const filters = {};
+      if (req.query.category) {
+         filters.category = req.query.category;
+      }
+      const products = await productService.getAllProducts(filters);
       return res.json(products);
    } catch (err) {
-      res.status(500).send(`Failed to get all products: ${err.message}`);
+      res.status(500).json({ msg: err.message });
    }
 });
 
 // Get Product by ID
 router.get("/:id", async (req, res) => {
    try {
-      const product = await Product.findById(req.params.id);
-      if (!product) return res.status(404).json({ msg: "Product not found" });
+      const product = await productService.getProductById(req.params.id);
       return res.json(product);
    } catch (err) {
-      res.status(500).send(
-         `Failed to get product ${req.params.id}: ${err.message}`
-      );
+      if (err.message === "Product not found") {
+         return res.status(404).json({ msg: err.message });
+      }
+      res.status(500).json({ msg: err.message });
    }
 });
 
 // Update Product
 router.put("/:id", async (req, res) => {
-   const { name, description, price, category, stock } = req.body;
    try {
-      const updatedProduct = await Product.findByIdAndUpdate(
+      const updatedProduct = await productService.updateProduct(
          req.params.id,
-         {
-            name,
-            description,
-            price,
-            category,
-            stock,
-         },
-         { new: true }
+         req.body
       );
-
-      if (!updatedProduct)
-         return res.status(404).json({ msg: "Product not found" });
       return res.json(updatedProduct);
    } catch (err) {
-      res.status(500).send(
-         `Failed to update product ${req.params.id}: ${err.message}`
-      );
+      if (err.message === "Product not found") {
+         return res.status(404).json({ msg: err.message });
+      }
+      if (
+         err.message.includes("must be") ||
+         err.message.includes("cannot be")
+      ) {
+         return res.status(400).json({ msg: err.message });
+      }
+      res.status(500).json({ msg: err.message });
    }
 });
 
 // Delete Product
 router.delete("/:id", async (req, res) => {
    try {
-      const product = await Product.findByIdAndDelete(req.params.id);
-      if (!product) return res.status(404).json({ msg: "Product not found" });
+      await productService.deleteProduct(req.params.id);
       return res.json({ msg: "Product deleted" });
    } catch (err) {
-      res.status(500).send(
-         `Failed to delete product ${req.params.id}: ${err.message}`
-      );
+      if (err.message === "Product not found") {
+         return res.status(404).json({ msg: err.message });
+      }
+      res.status(500).json({ msg: err.message });
    }
 });
 
@@ -87,22 +82,70 @@ router.delete("/:id", async (req, res) => {
 router.put("/:id/deduction", async (req, res) => {
    const { quantity } = req.body;
    try {
-      const product = await Product.findById(req.params.id);
-      if (!product) return res.status(404).json({ msg: "Product not found" });
-      if (product.stock < quantity)
-         return res.status(400).json({ msg: "Insufficient stock" });
-      // t....
-      const updatedProduct = await Product.findByIdAndUpdate(
+      const updatedProduct = await productService.deductStock(
          req.params.id,
-         { $inc: { stock: -quantity } },
-         { new: true }
+         quantity
       );
-
       return res.json(updatedProduct);
    } catch (err) {
-      res.status(500).send(
-         `Failed to deduct stock of product ${req.params.id}: ${err.message}`
+      if (err.message === "Product not found") {
+         return res.status(404).json({ msg: err.message });
+      }
+      if (
+         err.message.includes("Insufficient stock") ||
+         err.message.includes("must be")
+      ) {
+         return res.status(400).json({ msg: err.message });
+      }
+      res.status(500).json({ msg: err.message });
+   }
+});
+
+// Add stock to product
+router.put("/:id/addition", async (req, res) => {
+   const { quantity } = req.body;
+   try {
+      const updatedProduct = await productService.addStock(
+         req.params.id,
+         quantity
       );
+      return res.json(updatedProduct);
+   } catch (err) {
+      if (err.message === "Product not found") {
+         return res.status(404).json({ msg: err.message });
+      }
+      if (err.message.includes("must be")) {
+         return res.status(400).json({ msg: err.message });
+      }
+      res.status(500).json({ msg: err.message });
+   }
+});
+
+// Check product availability
+router.get("/:id/availability", async (req, res) => {
+   const { quantity } = req.query;
+   try {
+      const availability = await productService.checkAvailability(
+         req.params.id,
+         parseInt(quantity) || 1
+      );
+      return res.json(availability);
+   } catch (err) {
+      if (err.message === "Product not found") {
+         return res.status(404).json({ msg: err.message });
+      }
+      res.status(500).json({ msg: err.message });
+   }
+});
+
+// Get low stock products
+router.get("/stock/low", async (req, res) => {
+   try {
+      const threshold = parseInt(req.query.threshold) || 10;
+      const products = await productService.getLowStockProducts(threshold);
+      return res.json(products);
+   } catch (err) {
+      res.status(500).json({ msg: err.message });
    }
 });
 
