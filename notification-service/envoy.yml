@@ -24,17 +24,29 @@ static_resources:
                   - name: envoy.filters.http.router
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                use_remote_address: true
+                # Uncomment the following lines to enable OpenTelemetry tracing with Jaeger
+                # tracing:
+                #   provider:
+                #     name: envoy.tracers.opentelemetry
+                #     typed_config:
+                #       "@type": type.googleapis.com/envoy.config.trace.v3.OpenTelemetryConfig
+                #       grpc_service:
+                #         envoy_grpc:
+                #           cluster_name: jaeger
+                #       service_name: envoy-proxy
 
                 tracing:
                   provider:
                     name: envoy.tracers.opentelemetry
                     typed_config:
                       "@type": type.googleapis.com/envoy.config.trace.v3.OpenTelemetryConfig
-                      grpc_service:
-                        envoy_grpc:
-                          cluster_name: jaeger
+                      http_service:
+                        http_uri:
+                          uri: http://jaeger-service:4318/v1/traces
+                          cluster: jaeger
+                          timeout: 0.25s
                       service_name: envoy-proxy
-
   clusters:
     - name: notification_service
       connect_timeout: 0.25s
@@ -62,7 +74,7 @@ static_resources:
                   address:
                     socket_address:
                       address: jaeger-service
-                      port_value: 4317
+                      port_value: 4318
 
 admin:
   access_log_path: /tmp/admin_access.log
