@@ -21,10 +21,10 @@
 
 - Docker & Docker Compose should be installed.
 
-  ```bash
-  docker --version
-  docker compose version
-  ```
+   ```bash
+   docker --version
+   docker compose version
+   ```
 
 - Create and update all `.env` files with the required values for each service.
 

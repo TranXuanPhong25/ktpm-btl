@@ -7,49 +7,49 @@ const router = express.Router();
 
 // Register a new user
 router.post("/register", async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
+   try {
+      const { name, email, password } = req.body;
 
-    let user = await User.findOne({ email });
-    if (user) {
-      return res.status(400).json({ error: "User already exists" });
-    }
+      let user = await User.findOne({ email });
+      if (user) {
+         return res.status(400).json({ error: "User already exists" });
+      }
 
-    user = new User({ name, email, password });
-    await user.save();
+      user = new User({ name, email, password });
+      await user.save();
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
-    res.json({ token });
-  } catch (error) {
-    res.status(500).send(`Failed to register a new user: ${error.message}`);
-  }
+      const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+         expiresIn: "1h",
+      });
+      res.json({ token });
+   } catch (error) {
+      res.status(500).send(`Failed to register a new user: ${error.message}`);
+   }
 });
 
 // Login a user
 router.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
+   try {
+      const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res
-        .status(400)
-        .json({ error: "No user with this email was found" });
-    }
+      const user = await User.findOne({ email });
+      if (!user) {
+         return res
+            .status(400)
+            .json({ error: "No user with this email was found" });
+      }
 
-    const isMatch = await argon2.verify(user.password, password);
-    if (!isMatch) return res.status(400).json({ msg: "Invalid credentials" });
+      const isMatch = await argon2.verify(user.password, password);
+      if (!isMatch) return res.status(400).json({ msg: "Invalid credentials" });
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
+      const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+         expiresIn: "1h",
+      });
 
-    res.json({ token });
-  } catch (error) {
-    res.status(500).send(`Failed to login: ${error.message}`);
-  }
+      res.json({ token });
+   } catch (error) {
+      res.status(500).send(`Failed to login: ${error.message}`);
+   }
 });
 
 module.exports = router;
