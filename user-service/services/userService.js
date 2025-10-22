@@ -1,6 +1,5 @@
 const userRepository = require("../repositories/userRepository");
 const argon2 = require("argon2");
-const jwt = require("jsonwebtoken");
 
 class UserService {
    /**
@@ -33,16 +32,10 @@ class UserService {
       // Create user (password will be hashed by model pre-save hook)
       const user = await userRepository.create({ name, email, password });
 
-      // Generate JWT token
-      const token = this.generateToken(user._id);
-
       return {
-         user: {
-            id: user._id,
-            name: user.name,
-            email: user.email,
-         },
-         token,
+         id: user._id,
+         name: user.name,
+         email: user.email,
       };
    }
 
@@ -70,16 +63,10 @@ class UserService {
          throw new Error("Invalid credentials");
       }
 
-      // Generate JWT token
-      const token = this.generateToken(user._id);
-
       return {
-         user: {
-            id: user._id,
-            name: user.name,
-            email: user.email,
-         },
-         token,
+         id: user._id,
+         name: user.name,
+         email: user.email,
       };
    }
 
@@ -211,30 +198,6 @@ class UserService {
       }
 
       return { message: "User deleted successfully" };
-   }
-
-   /**
-    * Verify JWT token
-    * @param {string} token - JWT token
-    * @returns {Promise<Object>} Decoded token
-    */
-   verifyToken(token) {
-      try {
-         const jwtSecret = process.env.JWT_SECRET || "default_secret";
-         return jwt.verify(token, jwtSecret);
-      } catch (err) {
-         throw new Error("Invalid or expired token");
-      }
-   }
-
-   /**
-    * Generate JWT token
-    * @param {string} userId - User ID
-    * @returns {string} JWT token
-    */
-   generateToken(userId) {
-      const jwtSecret = process.env.JWT_SECRET || "default_secret";
-      return jwt.sign({ userId }, jwtSecret, { expiresIn: "1h" });
    }
 
    /**

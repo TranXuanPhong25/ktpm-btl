@@ -118,18 +118,4 @@ router.delete("/:userId", async (req, res) => {
    }
 });
 
-// Verify token
-router.post("/verify-token", async (req, res) => {
-   try {
-      const { token } = req.body;
-      if (!token) {
-         return res.status(400).json({ error: "Token is required" });
-      }
-      const decoded = userService.verifyToken(token);
-      res.json({ valid: true, userId: decoded.userId });
-   } catch (error) {
-      res.status(401).json({ valid: false, error: error.message });
-   }
-});
-
 module.exports = router;
