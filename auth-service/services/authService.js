@@ -1,8 +1,5 @@
 const jwt = require("jsonwebtoken");
-const axios = require("axios");
-
-const USER_SERVICE_URI =
-   process.env.USER_SERVICE_URI || "http://localhost:5000";
+const UserService = require("./userService");
 
 class AuthService {
    /**
@@ -12,12 +9,10 @@ class AuthService {
     * @param {string} password - User password
     * @returns {Promise<Object>} User and token
     */
+
    async register(name, email, password) {
       try {
-         const { data: user } = await axios.post(
-            `${USER_SERVICE_URI}/api/users/register`,
-            { name, email, password }
-         );
+         const user = await UserService.createUser({ name, email, password });
          const token = this.generateToken(user.id);
          return { user, token };
       } catch (err) {
@@ -35,12 +30,9 @@ class AuthService {
     */
    async login(email, password) {
       try {
-         const { data: user } = await axios.post(
-            `${USER_SERVICE_URI}/api/users/login`,
-            {
-               email,
-               password,
-            }
+         const { data: user } = await UserService.checkCredentials(
+            email,
+            password
          );
          const token = this.generateToken(user.id);
          return { user, token };
