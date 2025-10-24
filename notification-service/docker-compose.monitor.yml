@@ -17,8 +17,8 @@ services:
       dockerfile: Dockerfile.envoy
     container_name: envoy
     ports:
-      - "8080:8080"
-      - "9901:9901"
+      - "8080:8080" # listener port
+      - "9901:9901" # admin port
     depends_on:
       - noti-service
       - jaeger-service

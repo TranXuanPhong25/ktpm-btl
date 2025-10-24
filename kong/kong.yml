@@ -1,0 +1,22 @@
+_format_version: "3.0"
+services:
+  - name: notification-service
+    url: http://host.docker.internal:8080/api/notification # Notification envoy listener
+    routes:
+      - name: notification-route
+        paths:
+          - /notifications
+  - name: product-service
+    url: http://host.docker.internal:5001/api/products # Product service
+    routes:
+      - name: product-route
+        paths:
+          - /products
+
+#  Global plugin for all services
+plugins:
+  - name: rate-limiting
+    config:
+      second: 10     # 10 requests per second
+      minute: 100    # 100 requests per minute
+      policy: local
