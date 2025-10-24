@@ -32,6 +32,7 @@ class AuthService {
     * @param {string} password - User password
     * @returns {Promise<Object>} User and token
     */
+
    async register(name, email, password) {
       return new Promise((resolve, reject) => {
          this.client.register({ name, email, password }, (err, response) => {
