@@ -27,4 +27,9 @@ router.post("/sms", async (req, res) => {
    }
 });
 
+router.get("/code500", (req, res) => {
+   console.log("Simulating 500 error");
+   res.status(500).send("Test 500 Error");
+});
+
 module.exports = router;
