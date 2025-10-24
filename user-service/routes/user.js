@@ -3,41 +3,6 @@ const userService = require("../services/userService");
 
 const router = express.Router();
 
-// Register a new user
-router.post("/register", async (req, res) => {
-   try {
-      const { name, email, password } = req.body;
-      const result = await userService.register(name, email, password);
-      res.status(201).json(result);
-   } catch (error) {
-      if (
-         error.message === "User already exists" ||
-         error.message.includes("Invalid") ||
-         error.message.includes("required")
-      ) {
-         return res.status(400).json({ error: error.message });
-      }
-      res.status(500).json({ error: error.message });
-   }
-});
-
-// Login a user
-router.post("/login", async (req, res) => {
-   try {
-      const { email, password } = req.body;
-      const result = await userService.login(email, password);
-      res.json(result);
-   } catch (error) {
-      if (
-         error.message === "Invalid credentials" ||
-         error.message.includes("required")
-      ) {
-         return res.status(400).json({ error: error.message });
-      }
-      res.status(500).json({ error: error.message });
-   }
-});
-
 // Get user by ID
 router.get("/:userId", async (req, res) => {
    try {

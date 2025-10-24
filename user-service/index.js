@@ -2,10 +2,13 @@ const express = require("express");
 const dotenv = require("dotenv");
 const database = require("./config/database");
 const userRoutes = require("./routes/user");
-
-const PORT = process.env.PORT || 5000;
+const startGrpcServer = require("./grpc/server");
 
 dotenv.config();
+
+const PORT = process.env.PORT || 5000;
+const GRPC_PORT = process.env.GRPC_PORT || 50051;
+
 const app = express();
 
 // middleware
@@ -24,6 +27,8 @@ database
       app.listen(PORT, () => {
          console.log(`User Service is running on port ${PORT}`);
       });
+
+      startGrpcServer(GRPC_PORT);
    })
    .catch((err) => {
       console.error("Failed to start User Service:", err.message);

@@ -7,5 +7,5 @@ RUN npm install
 
 COPY . .
 
-EXPOSE 5000 50051
+EXPOSE 5006
 CMD [ "node", "index.js" ]

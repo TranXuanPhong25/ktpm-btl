@@ -1,10 +1,30 @@
 const jwt = require("jsonwebtoken");
-const axios = require("axios");
+const grpc = require("@grpc/grpc-js");
+const protoLoader = require("@grpc/proto-loader");
+const path = require("path");
 
-const USER_SERVICE_URI =
-   process.env.USER_SERVICE_URI || "http://localhost:5000";
+const PROTO_PATH = path.join(__dirname, "../protos/user.proto");
+const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
+   keepCase: true,
+   longs: String,
+   enums: String,
+   defaults: true,
+   oneofs: true,
+});
+
+const userProto = grpc.loadPackageDefinition(packageDefinition).user;
+
+const USER_SERVICE_GRPC_URI =
+   process.env.USER_SERVICE_GRPC_URI || "localhost:50051";
 
 class AuthService {
+   constructor() {
+      this.client = new userProto.UserService(
+         USER_SERVICE_GRPC_URI,
+         grpc.credentials.createInsecure()
+      );
+   }
+
    /**
     * Register a new user
     * @param {string} name - User name
@@ -13,18 +33,21 @@ class AuthService {
     * @returns {Promise<Object>} User and token
     */
    async register(name, email, password) {
-      try {
-         const { data: user } = await axios.post(
-            `${USER_SERVICE_URI}/api/users/register`,
-            { name, email, password }
-         );
-         const token = this.generateToken(user.id);
-         return { user, token };
-      } catch (err) {
-         throw new Error(
-            err.response?.data?.error || "User service unavailable"
-         );
-      }
+      return new Promise((resolve, reject) => {
+         this.client.register({ name, email, password }, (err, response) => {
+            if (err) {
+               console.error("gRPC Error:", err);
+               return reject(new Error("User service unavailable"));
+            }
+
+            if (response.error) {
+               return reject(new Error(response.error));
+            }
+
+            const token = this.generateToken(response.user.id);
+            resolve({ user: response.user, token });
+         });
+      });
    }
 
    /**
@@ -34,21 +57,21 @@ class AuthService {
     * @returns {Promise<Object>} User and token
     */
    async login(email, password) {
-      try {
-         const { data: user } = await axios.post(
-            `${USER_SERVICE_URI}/api/users/login`,
-            {
-               email,
-               password,
+      return new Promise((resolve, reject) => {
+         this.client.login({ email, password }, (err, response) => {
+            if (err) {
+               console.error("gRPC Error:", err);
+               return reject(new Error("User service unavailable"));
             }
-         );
-         const token = this.generateToken(user.id);
-         return { user, token };
-      } catch (err) {
-         throw new Error(
-            err.response?.data?.error || "User service unavailable"
-         );
-      }
+
+            if (response.error) {
+               return reject(new Error(response.error));
+            }
+
+            const token = this.generateToken(response.user.id);
+            resolve({ user: response.user, token });
+         });
+      });
    }
 
    /**
