@@ -4,6 +4,9 @@ const axios = require("axios");
 const PRODUCT_SERVICE_URI =
    process.env.PRODUCT_SERVICE_URI || "http://localhost:5001";
 
+const SHOPPING_CART_SERVICE_URI =
+   process.env.SHOPPING_CART_SERVICE_URI || "http://localhost:5002";
+
 class OrderService {
    /**
     * Place a new order
@@ -49,6 +52,15 @@ class OrderService {
          items,
          totalAmount,
       });
+
+      // Clear cart
+      try {
+         await axios.delete(`${SHOPPING_CART_SERVICE_URI}/api/cart/${userId}`);
+      } catch (err) {
+         // Rollback order if clear fails
+         await orderRepository.delete(order._id);
+         throw new Error(`Failed to clear cart: ${err.message}`);
+      }
 
       // Deduct stock using product service bulk endpoint
       try {

@@ -1,88 +1,7 @@
 const userRepository = require("../repositories/userRepository");
 const argon2 = require("argon2");
-const jwt = require("jsonwebtoken");
 
 class UserService {
-   /**
-    * Register a new user
-    * @param {string} name - User name
-    * @param {string} email - User email
-    * @param {string} password - User password
-    * @returns {Promise<Object>} User and token
-    */
-   async register(name, email, password) {
-      // Validation
-      if (!name || !email || !password) {
-         throw new Error("Name, email, and password are required");
-      }
-
-      if (!this.isValidEmail(email)) {
-         throw new Error("Invalid email format");
-      }
-
-      if (password.length < 6) {
-         throw new Error("Password must be at least 6 characters long");
-      }
-
-      // Check if user already exists
-      const existingUser = await userRepository.findByEmail(email);
-      if (existingUser) {
-         throw new Error("User already exists");
-      }
-
-      // Create user (password will be hashed by model pre-save hook)
-      const user = await userRepository.create({ name, email, password });
-
-      // Generate JWT token
-      const token = this.generateToken(user._id);
-
-      return {
-         user: {
-            id: user._id,
-            name: user.name,
-            email: user.email,
-         },
-         token,
-      };
-   }
-
-   /**
-    * Login user
-    * @param {string} email - User email
-    * @param {string} password - User password
-    * @returns {Promise<Object>} User and token
-    */
-   async login(email, password) {
-      // Validation
-      if (!email || !password) {
-         throw new Error("Email and password are required");
-      }
-
-      // Find user by email
-      const user = await userRepository.findByEmail(email);
-      if (!user) {
-         throw new Error("Invalid credentials");
-      }
-
-      // Verify password
-      const isMatch = await argon2.verify(user.password, password);
-      if (!isMatch) {
-         throw new Error("Invalid credentials");
-      }
-
-      // Generate JWT token
-      const token = this.generateToken(user._id);
-
-      return {
-         user: {
-            id: user._id,
-            name: user.name,
-            email: user.email,
-         },
-         token,
-      };
-   }
-
    /**
     * Get user by ID
     * @param {string} userId - User ID
@@ -211,30 +130,6 @@ class UserService {
       }
 
       return { message: "User deleted successfully" };
-   }
-
-   /**
-    * Verify JWT token
-    * @param {string} token - JWT token
-    * @returns {Promise<Object>} Decoded token
-    */
-   verifyToken(token) {
-      try {
-         const jwtSecret = process.env.JWT_SECRET || "default_secret";
-         return jwt.verify(token, jwtSecret);
-      } catch (err) {
-         throw new Error("Invalid or expired token");
-      }
-   }
-
-   /**
-    * Generate JWT token
-    * @param {string} userId - User ID
-    * @returns {string} JWT token
-    */
-   generateToken(userId) {
-      const jwtSecret = process.env.JWT_SECRET || "default_secret";
-      return jwt.sign({ userId }, jwtSecret, { expiresIn: "1h" });
    }
 
    /**
