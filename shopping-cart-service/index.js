@@ -1,6 +1,6 @@
 const express = require("express");
 const dotenv = require("dotenv");
-const mongoose = require("mongoose");
+const database = require("./config/database");
 const cartRoutes = require("./routes/cart");
 
 const PORT = process.env.PORT || 5002;
@@ -13,20 +13,25 @@ app.use(express.json());
 // routes
 app.use("/api/cart", cartRoutes);
 
-mongoose
-   .connect(process.env.MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-   })
+// Database connection and server start
+const mongoURI =
+   process.env.MONGO_URI || "mongodb://localhost:27017/ecommerce-cart";
+
+database
+   .connect(mongoURI)
    .then(() => {
-      console.log("✅ Shopping Cart Service is Connected to MongoDB");
       app.listen(PORT, () => {
-         console.log(`Listening on PORT ${PORT}`);
+         console.log(`Shopping Cart Service is running on port ${PORT}`);
       });
    })
-   .catch((error) => {
-      console.error(
-         "🚫 Failed to connect to MongoDB -> Shopping Cart Service: ",
-         error.message
-      );
+   .catch((err) => {
+      console.error("Failed to start Shopping Cart Service:", err.message);
+      process.exit(1);
    });
+
+// Graceful shutdown
+process.on("SIGINT", async () => {
+   console.log("\nShutting down Shopping Cart Service...");
+   await database.disconnect();
+   process.exit(0);
+});

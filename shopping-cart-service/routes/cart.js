@@ -1,11 +1,7 @@
 const express = require("express");
-const Cart = require("../models/cart");
-const axios = require("axios");
+const cartService = require("../services/cartService");
 
 const router = express.Router();
-
-const PRODUCT_SERVICE_URI =
-   process.env.PRODUCT_SERVICE_URI || "http://localhost:5001";
 
 // Add Item to Cart
 router.post("/:userId/items", async (req, res) => {
@@ -13,34 +9,16 @@ router.post("/:userId/items", async (req, res) => {
    const { productId, quantity } = req.body;
 
    try {
-      const productResponse = await axios.get(
-         `${PRODUCT_SERVICE_URI}/api/products/${productId}`
-      );
-      if (!productResponse.data) {
-         return res.status(404).json({ msg: "Product not found" });
-      }
-
-      let cart = await Cart.findOne({ userId });
-
-      if (!cart) {
-         cart = new Cart({ userId, items: [{ productId, quantity }] });
-      } else {
-         const itemIndex = cart.items.findIndex(
-            (item) => item.productId === productId
-         );
-         if (itemIndex > -1) {
-            cart.items[itemIndex].quantity += quantity;
-         } else {
-            cart.items.push({ productId, quantity });
-         }
-      }
-
-      await cart.save();
+      const cart = await cartService.addItem(userId, productId, quantity);
       res.status(201).json(cart);
    } catch (err) {
-      res.status(500).send(
-         `Failed to add ${quantity} item ${productId} to cart of user ${userId}: ${err.message}`
-      );
+      if (err.message === "Product not found") {
+         return res.status(404).json({ msg: err.message });
+      }
+      if (err.message.includes("required") || err.message.includes("must be")) {
+         return res.status(400).json({ msg: err.message });
+      }
+      res.status(500).json({ msg: err.message });
    }
 });
 
@@ -48,17 +26,13 @@ router.post("/:userId/items", async (req, res) => {
 router.get("/:userId", async (req, res) => {
    const { userId } = req.params;
    try {
-      let cart = await Cart.findOne({ userId });
-      if (!cart) {
-         cart = new Cart({ userId, items: [] });
-         await cart.save();
-      }
-
+      const cart = await cartService.getCart(userId);
       res.json(cart);
    } catch (err) {
-      res.status(500).send(
-         `Failed to get cart of user ${userId}: ${err.message}`
-      );
+      if (err.message.includes("required")) {
+         return res.status(400).json({ msg: err.message });
+      }
+      res.status(500).json({ msg: err.message });
    }
 });
 
@@ -66,17 +40,16 @@ router.get("/:userId", async (req, res) => {
 router.delete("/:userId/items/:productId", async (req, res) => {
    const { userId, productId } = req.params;
    try {
-      const cart = await Cart.findOne({ userId });
-      if (!cart) return res.status(404).json({ msg: "Cart not found" });
-
-      cart.items = cart.items.filter((item) => item.productId !== productId);
-
-      await cart.save();
+      const cart = await cartService.removeItem(userId, productId);
       res.json(cart);
    } catch (err) {
-      res.status(500).send(
-         `Failed to remove item ${productId} from cart of user ${userId}: ${err.message}`
-      );
+      if (err.message === "Cart not found") {
+         return res.status(404).json({ msg: err.message });
+      }
+      if (err.message.includes("required")) {
+         return res.status(400).json({ msg: err.message });
+      }
+      res.status(500).json({ msg: err.message });
    }
 });
 
@@ -86,24 +59,23 @@ router.put("/:userId/items/:productId", async (req, res) => {
    const { quantity } = req.body;
 
    try {
-      const cart = await Cart.findOne({ userId });
-      if (!cart) return res.status(404).json({ msg: "Cart not found" });
-
-      const itemIndex = cart.items.findIndex(
-         (item) => item.productId === productId
+      const cart = await cartService.updateItemQuantity(
+         userId,
+         productId,
+         quantity
       );
-      if (itemIndex > -1) {
-         cart.items[itemIndex].quantity = quantity;
-      } else {
-         return res.status(404).json({ msg: "Product not found in cart" });
-      }
-
-      await cart.save();
       res.json(cart);
    } catch (err) {
-      res.status(500).send(
-         `Failed to update quantity for item ${productId} in cart of user ${userId}: ${err.message}`
-      );
+      if (
+         err.message === "Cart not found" ||
+         err.message === "Product not found in cart"
+      ) {
+         return res.status(404).json({ msg: err.message });
+      }
+      if (err.message.includes("required") || err.message.includes("must be")) {
+         return res.status(400).json({ msg: err.message });
+      }
+      res.status(500).json({ msg: err.message });
    }
 });
 
@@ -111,17 +83,77 @@ router.put("/:userId/items/:productId", async (req, res) => {
 router.delete("/:userId", async (req, res) => {
    const { userId } = req.params;
    try {
-      const cart = await Cart.findOne({ userId });
-      if (!cart) return res.status(404).json({ msg: "Cart not found" });
-
-      cart.items = [];
-
-      await cart.save();
+      const cart = await cartService.clearCart(userId);
       res.json(cart);
    } catch (err) {
-      res.status(500).send(
-         `Failed to clear cart for user ${userId}: ${err.message}`
-      );
+      if (err.message === "Cart not found") {
+         return res.status(404).json({ msg: err.message });
+      }
+      res.status(500).json({ msg: err.message });
+   }
+});
+
+// Delete one or multiple items from cart
+router.delete("/:userId/items", async (req, res) => {
+   const { userId } = req.params;
+   const { productIds } = req.query;
+
+   try {
+      if (!productIds) {
+         return res
+            .status(400)
+            .json({ msg: "productIds query parameter is required" });
+      }
+
+      let productIdArray;
+      if (Array.isArray(productIds)) {
+         productIdArray = productIds;
+      } else {
+         try {
+            productIdArray = JSON.parse(productIds);
+         } catch {
+            productIdArray = productIds.split(",").map((id) => id.trim());
+         }
+      }
+
+      const cart = await cartService.removeItems(userId, productIdArray);
+      res.json(cart);
+   } catch (err) {
+      if (err.message === "Cart not found") {
+         return res.status(404).json({ msg: err.message });
+      }
+      if (err.message.includes("required") || err.message.includes("must be")) {
+         return res.status(400).json({ msg: err.message });
+      }
+      res.status(500).json({ msg: err.message });
+   }
+});
+
+// Get cart summary
+router.get("/:userId/summary", async (req, res) => {
+   const { userId } = req.params;
+   try {
+      const summary = await cartService.getCartSummary(userId);
+      res.json(summary);
+   } catch (err) {
+      if (err.message.includes("required")) {
+         return res.status(400).json({ msg: err.message });
+      }
+      res.status(500).json({ msg: err.message });
+   }
+});
+
+// Validate cart items
+router.get("/:userId/validate", async (req, res) => {
+   const { userId } = req.params;
+   try {
+      const validation = await cartService.validateCart(userId);
+      res.json(validation);
+   } catch (err) {
+      if (err.message.includes("required")) {
+         return res.status(400).json({ msg: err.message });
+      }
+      res.status(500).json({ msg: err.message });
    }
 });
 
