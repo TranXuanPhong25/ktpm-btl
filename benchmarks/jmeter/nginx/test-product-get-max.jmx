@@ -28,9 +28,9 @@
         <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET Product by Random ID" enabled="true">
           <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" enabled="true">
             <collectionProp name="Arguments.arguments"/>
-          </elementProp>
+          </elementProp>  
           <stringProp name="HTTPSampler.domain">localhost</stringProp>
-          <stringProp name="HTTPSampler.port">5001</stringProp>
+          <stringProp name="HTTPSampler.port">80</stringProp>
           <stringProp name="HTTPSampler.protocol">http</stringProp>
           <stringProp name="HTTPSampler.contentEncoding"></stringProp>
           <stringProp name="HTTPSampler.path">/api/products/${randomObjectId}</stringProp>
@@ -49,11 +49,11 @@
             <stringProp name="filename"></stringProp>
             <stringProp name="parameters"></stringProp>
             <stringProp name="script">// Use real product ID prefix from your DB + random suffix
-String prefix = "68f1f642023c5a0";
+String prefix = "68f1f642023c5a0cd69";
 String suffix = "";
 Random rand = new Random();
 // Generate 6 more hex chars to make 24 total
-for(int i = 0; i &lt; 9; i++) {
+for(int i = 0; i &lt; 5; i++) {
     suffix += Integer.toHexString(rand.nextInt(16));
 }
 vars.put("randomObjectId", prefix + suffix);</stringProp>
