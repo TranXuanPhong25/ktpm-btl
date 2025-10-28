@@ -48,6 +48,7 @@ services:
             limits:
                cpus: "1.0"
                memory: 500mb
+               
    shopping-cart-service:
       build: ./shopping-cart-service
       environment:

@@ -1,0 +1,52 @@
+services:
+  product-service:
+        build: ./product-service
+        environment:
+          - MONGO_URI=mongodb://mongo-products:27017/ecommerce-products
+        networks:
+          - ecommerce-network
+        depends_on:
+          - mongo-products
+        deploy:
+          replicas: 6
+          resources:
+              limits:
+                cpus: "1.0"
+                memory: 500mb
+
+  mongo-products:
+      image: mongo:latest
+      ports:
+         - "27018:27017"
+      volumes:
+         - mongo-products-data:/data/db
+      networks:
+         - ecommerce-network
+      deploy:
+         resources:
+            limits:
+               cpus: "1.0"
+               memory: 512M
+  
+  nginx:
+      image: nginx:latest
+      ports:
+         - "80:80"
+      volumes:
+         - ./nginx.product.conf:/etc/nginx/nginx.conf
+      networks:
+         - ecommerce-network
+      depends_on:
+         - product-service
+      deploy:
+         resources:
+            limits:
+              cpus: "1.0"
+              memory: 500mb
+
+volumes:
+   mongo-products-data: {}
+
+networks:
+   ecommerce-network:
+      driver: bridge

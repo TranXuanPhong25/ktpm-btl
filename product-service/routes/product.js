@@ -1,7 +1,12 @@
 const express = require("express");
+const os = require("os");
 const productService = require("../services/productService");
 
 const router = express.Router();
+
+router.get("/testlb", (req, res) => {
+   res.json({ msg: `Response from Product Service at ${os.hostname()}` });
+});
 
 // Create Product
 router.post("/", async (req, res) => {
