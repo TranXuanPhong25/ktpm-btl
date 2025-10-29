@@ -245,7 +245,7 @@ services:
       build: ./order-service
       environment:
          - MONGO_URI=mongodb://mongo-orders:27017/ecommerce-orders
-         - PRODUCT_SERVICE_URI=http://product-service:5001
+         - PRODUCT_SERVICE_URI=http://product-service-envoy:8080
          - SHOPPING_CART_SERVICE_URI=http://cart-service-envoy:8080
          - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672
       networks:
@@ -291,7 +291,6 @@ services:
       environment:
          - MONGO_URI=mongodb://mongo-payments:27017/ecommerce-payments
          - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
-         - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672
       networks:
          - ecommerce-network
       depends_on:
@@ -332,7 +331,6 @@ services:
          - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
          - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
          - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
-         - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672
       networks:
          - ecommerce-network
       depends_on:
