@@ -277,6 +277,61 @@ class PaymentService {
          throw new Error(`Verification failed: ${err.message}`);
       }
    }
+
+   /**
+    * Process payment for an order (simplified for saga pattern)
+    * @param {string} orderId - Order ID
+    * @param {number} amount - Payment amount
+    * @param {string} userId - User ID
+    * @returns {Promise<Object>} Created payment
+    */
+   async processPaymentForOrder(orderId, amount, userId) {
+      if (!orderId) {
+         throw new Error("Order ID is required");
+      }
+      if (!amount || amount <= 0) {
+         throw new Error("Amount must be greater than 0");
+      }
+
+      try {
+         // Simulate payment processing
+         // In production, this would call actual payment gateway
+         const simulateSuccess = Math.random() > 0.1; // 90% success rate
+
+         if (!simulateSuccess) {
+            throw new Error("Payment gateway declined the transaction");
+         }
+
+         // Create payment record
+         const payment = await paymentRepository.create({
+            orderId,
+            amount,
+            status: "succeeded",
+            paymentMethod: "simulated",
+            metadata: {
+               userId,
+               processedAt: new Date().toISOString(),
+            },
+         });
+
+         return payment;
+      } catch (err) {
+         // Log payment failure
+         await paymentRepository.create({
+            orderId,
+            amount,
+            status: "failed",
+            paymentMethod: "simulated",
+            errorMessage: err.message,
+            metadata: {
+               userId,
+               failedAt: new Date().toISOString(),
+            },
+         });
+
+         throw new Error(`Payment processing failed: ${err.message}`);
+      }
+   }
 }
 
 module.exports = new PaymentService();

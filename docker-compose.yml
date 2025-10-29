@@ -59,6 +59,7 @@ services:
       environment:
          - MONGO_URI=mongodb://mongo-cart:27017/ecommerce-cart
          - PRODUCT_SERVICE_URI=http://product-service:5001
+         - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
          - PORT=5002
       networks:
          - ecommerce-network
@@ -72,8 +73,8 @@ services:
 
    order-service:
       build: ./order-service
-      ports:
-         - 5003:5003
+      # ports:
+      # - 5003:5003
       environment:
          - MONGO_URI=mongodb://mongo-orders:27017/ecommerce-orders
          - PRODUCT_SERVICE_URI=http://product-service:5001

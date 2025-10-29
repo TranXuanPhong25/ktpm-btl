@@ -6,12 +6,15 @@ const EVENTS = {
    ORDER_CREATED: "order.created",
    INVENTORY_RESERVED: "inventory.reserved",
    INVENTORY_FAILED: "inventory.failed",
+   PAYMENT_SUCCEEDED: "payment.succeeded",
+   PAYMENT_FAILED: "payment.failed",
 };
 
 // Exchange and queue names
 const EXCHANGES = {
    ORDER: "order_exchange",
    INVENTORY: "inventory_exchange",
+   PAYMENT: "payment_exchange",
 };
 
 const QUEUES = {
@@ -31,16 +34,22 @@ class OrderSaga {
          // Setup exchanges
          await this.rabbitMQ.assertExchange(EXCHANGES.ORDER);
          await this.rabbitMQ.assertExchange(EXCHANGES.INVENTORY);
+         await this.rabbitMQ.assertExchange(EXCHANGES.PAYMENT);
 
-         // Setup queue for saga to listen to inventory events
+         // Setup queue for saga to listen to inventory and payment events
          await this.rabbitMQ.assertQueue(QUEUES.ORDER_SAGA);
          await this.rabbitMQ.bindQueue(
             QUEUES.ORDER_SAGA,
             EXCHANGES.INVENTORY,
             "inventory.*"
          );
+         await this.rabbitMQ.bindQueue(
+            QUEUES.ORDER_SAGA,
+            EXCHANGES.PAYMENT,
+            "payment.*"
+         );
 
-         // Start listening to inventory events
+         // Start listening to events
          await this.startListening();
 
          this.isInitialized = true;
@@ -74,7 +83,7 @@ class OrderSaga {
    }
 
    /**
-    * Start listening to inventory events
+    * Start listening to inventory and payment events
     */
    async startListening() {
       await this.rabbitMQ.consume(QUEUES.ORDER_SAGA, async (event) => {
@@ -85,6 +94,10 @@ class OrderSaga {
                await this.handleInventoryReserved(event);
             } else if (event.eventType === EVENTS.INVENTORY_FAILED) {
                await this.handleInventoryFailed(event);
+            } else if (event.eventType === EVENTS.PAYMENT_SUCCEEDED) {
+               await this.handlePaymentSucceeded(event);
+            } else if (event.eventType === EVENTS.PAYMENT_FAILED) {
+               await this.handlePaymentFailed(event);
             }
          } catch (error) {
             console.error("Error handling event:", error.message);
@@ -122,6 +135,39 @@ class OrderSaga {
 
       console.log(
          `✓ Compensating transaction: Order ${orderId} marked as Failed`
+      );
+   }
+
+   /**
+    * Handle payment succeeded - Complete order
+    */
+   async handlePaymentSucceeded(event) {
+      const { orderId, paymentId } = event;
+
+      console.log(
+         `✓ Payment succeeded for order: ${orderId}, Payment ID: ${paymentId}`
+      );
+
+      // Update order status to 'Completed'
+      await orderRepository.updateStatus(orderId, "Completed");
+
+      console.log(`✓ Order ${orderId} status updated to Completed`);
+   }
+
+   /**
+    * Handle payment failed - Compensate by marking order as failed
+    * Inventory will be restored by product service
+    */
+   async handlePaymentFailed(event) {
+      const { orderId, reason } = event;
+
+      console.log(`✗ Payment failed for order: ${orderId}. Reason: ${reason}`);
+
+      // Compensating transaction: Mark order as Failed
+      await orderRepository.updateStatus(orderId, "Failed");
+
+      console.log(
+         `✓ Compensating transaction: Order ${orderId} marked as Failed due to payment failure`
       );
    }
 
