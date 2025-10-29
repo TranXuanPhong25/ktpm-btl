@@ -12,6 +12,14 @@ scrape_configs:
         - targets: ["cadvisor:8080"]
 
    # Envoy Proxy metrics for all services
+   - job_name: "envoy-auth-service"
+     metrics_path: "/stats/prometheus"
+     static_configs:
+        - targets: ["auth-service-envoy:9901"]
+          labels:
+             service: "auth-service"
+             proxy: "envoy"
+
    - job_name: "envoy-user-service"
      metrics_path: "/stats/prometheus"
      static_configs:
