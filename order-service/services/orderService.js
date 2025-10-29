@@ -1,15 +1,13 @@
 const orderRepository = require("../repositories/orderRepository");
 const axios = require("axios");
+const orderSaga = require("../saga/orderSaga");
 
 const PRODUCT_SERVICE_URI =
    process.env.PRODUCT_SERVICE_URI || "http://localhost:5001";
 
-const SHOPPING_CART_SERVICE_URI =
-   process.env.SHOPPING_CART_SERVICE_URI || "http://localhost:5002";
-
 class OrderService {
    /**
-    * Place a new order
+    * Place a new order with Saga pattern
     * @param {string} userId
     * @param {Array<{productId: string, quantity: number}>} items
     */
@@ -24,7 +22,7 @@ class OrderService {
          }
       }
 
-      // Bulk get products from product service
+      // Bulk get products from product service to validate and calculate total
       const productIds = items.map((item) => item.productId).join(",");
       const response = await axios.get(
          `${PRODUCT_SERVICE_URI}/api/products/bulk/get?ids=${productIds}`
@@ -41,42 +39,27 @@ class OrderService {
       for (const item of items) {
          const product = productMap[item.productId];
          if (!product) throw new Error(`Product ${item.productId} not found`);
-         if (product.stock < item.quantity)
-            throw new Error(`Insufficient stock for product ${product.name}`);
+         // Note: Stock validation will be done by inventory service in saga
          totalAmount += product.price * item.quantity;
       }
 
-      // Create order in DB
+      // Create order in DB with 'Pending' status
       const order = await orderRepository.create({
          userId,
          items,
          totalAmount,
+         status: "Pending",
       });
 
-      // Clear cart
+      // Publish OrderCreated event to start the saga
+      // This event will also trigger cart clearing in the cart service
       try {
-         await axios.delete(`${SHOPPING_CART_SERVICE_URI}/api/cart/${userId}`);
+         await orderSaga.publishOrderCreated(order);
+         console.log(`✓ Order ${order._id} created, saga initiated`);
       } catch (err) {
-         // Rollback order if clear fails
-         await orderRepository.delete(order._id);
-         throw new Error(`Failed to clear cart: ${err.message}`);
-      }
-
-      // Deduct stock using product service bulk endpoint
-      try {
-         await axios.post(
-            `${PRODUCT_SERVICE_URI}/api/products/bulk/deduction`,
-            {
-               updates: items.map((item) => ({
-                  id: item.productId,
-                  quantity: item.quantity,
-               })),
-            }
-         );
-      } catch (err) {
-         // Rollback order if deduction fails
-         await orderRepository.delete(order._id);
-         throw new Error(`Failed to deduct stock: ${err.message}`);
+         // If saga fails to start, mark order as failed
+         await orderRepository.updateStatus(order._id, "Failed");
+         throw new Error(`Failed to initiate saga: ${err.message}`);
       }
 
       return order;

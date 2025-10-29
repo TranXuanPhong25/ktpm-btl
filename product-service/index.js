@@ -2,6 +2,7 @@ const express = require("express");
 const dotenv = require("dotenv");
 const database = require("./config/database");
 const productRoutes = require("./routes/product");
+const orderEventHandler = require("./events/orderEventHandler");
 
 const PORT = process.env.PORT || 5001;
 
@@ -17,9 +18,22 @@ app.use("/api/products", productRoutes);
 const mongoURI =
    process.env.MONGO_URI || "mongodb://localhost:27017/ecommerce-products";
 
+const rabbitMQUri =
+   process.env.RABBITMQ_URI || "amqp://admin:admin123@localhost:5672";
+
+// Helper function to wait
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 database
    .connect(mongoURI)
-   .then(() => {
+   .then(async () => {
+      // Wait for RabbitMQ to be fully ready
+      console.log("Waiting for RabbitMQ to be ready...");
+      await wait(5000);
+
+      // Initialize Order Event Handler
+      await orderEventHandler.initialize(rabbitMQUri);
+
       app.listen(PORT, () => {
          console.log(`Product service is running on port ${PORT}`);
       });
@@ -32,6 +46,7 @@ database
 // Graceful shutdown
 process.on("SIGINT", async () => {
    console.log("\nShutting down Product Service...");
+   await orderEventHandler.close();
    await database.disconnect();
    process.exit(0);
 });

@@ -2,8 +2,7 @@ const grpc = require("@grpc/grpc-js");
 const protoLoader = require("@grpc/proto-loader");
 const path = require("path");
 const userRepository = require("../repositories/userRepository");
-const bcrypt = require("bcryptjs");
-
+const argon2 = require("argon2");
 // Load proto file
 const PROTO_PATH = path.join(__dirname, "../protos/user.proto");
 const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
@@ -69,7 +68,6 @@ const grpcHandlers = {
                id: user._id.toString(),
                name: user.name,
                email: user.email,
-               createdAt: user.createdAt.toISOString(),
             },
             error: "",
          });
@@ -106,7 +104,7 @@ const grpcHandlers = {
          }
 
          // Check password
-         const isMatch = await bcrypt.compare(password, user.password);
+         const isMatch = await argon2.verify(user.password, password);
          if (!isMatch) {
             return callback(null, {
                user: null,
@@ -120,7 +118,6 @@ const grpcHandlers = {
                id: user._id.toString(),
                name: user.name,
                email: user.email,
-               createdAt: user.createdAt.toISOString(),
             },
             error: "",
          });
