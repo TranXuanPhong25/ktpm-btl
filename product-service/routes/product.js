@@ -1,6 +1,7 @@
 const express = require("express");
 const os = require("os");
 const productService = require("../services/productService");
+const productCacheService = require("../services/productCacheService");
 
 const router = express.Router();
 
@@ -38,7 +39,7 @@ router.get("/", async (req, res) => {
 // Get Product by ID
 router.get("/:id", async (req, res) => {
    try {
-      const product = await productService.getProductById(req.params.id);
+      const product = await productCacheService.getProductById(req.params.id);
       return res.json(product);
    } catch (err) {
       if (err.message === "Product not found") {

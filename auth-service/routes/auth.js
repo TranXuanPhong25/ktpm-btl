@@ -38,15 +38,50 @@ router.post("/login", async (req, res) => {
    }
 });
 
-// Verify token
+// Verify token - support both GET (for nginx auth_request) and POST
+router.get("/verify-token", async (req, res) => {
+   try {
+      let token;
+
+      // Check Authorization header
+      if (req.headers.authorization) {
+         const authHeader = req.headers.authorization;
+         if (authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7);
+         }
+      }
+
+      if (!token) {
+         return res.status(401).json({ error: "Token is required" });
+      }
+
+      const decoded = authService.verifyToken(token);
+      res.status(200).json({ valid: true, userId: decoded.userId });
+   } catch (error) {
+      res.status(401).json({ valid: false, error: error.message });
+   }
+});
+
+// Verify token - POST version
 router.post("/verify-token", async (req, res) => {
    try {
-      const { token } = req.body;
-      if (!token) {
-         return res.status(400).json({ error: "Token is required" });
+      // Support both body.token and Authorization header
+      let token = req.body.token;
+
+      // If no token in body, check Authorization header
+      if (!token && req.headers.authorization) {
+         const authHeader = req.headers.authorization;
+         if (authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7);
+         }
       }
+
+      if (!token) {
+         return res.status(401).json({ error: "Token is required" });
+      }
+
       const decoded = authService.verifyToken(token);
-      res.json({ valid: true, userId: decoded.userId });
+      res.status(200).json({ valid: true, userId: decoded.userId });
    } catch (error) {
       res.status(401).json({ valid: false, error: error.message });
    }

@@ -28,9 +28,9 @@
         <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET Product by Random ID" enabled="true">
           <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" enabled="true">
             <collectionProp name="Arguments.arguments"/>
-          </elementProp>
+          </elementProp>  
           <stringProp name="HTTPSampler.domain">localhost</stringProp>
-          <stringProp name="HTTPSampler.port">5001</stringProp>
+          <stringProp name="HTTPSampler.port">80</stringProp>
           <stringProp name="HTTPSampler.protocol">http</stringProp>
           <stringProp name="HTTPSampler.contentEncoding"></stringProp>
           <stringProp name="HTTPSampler.path">/api/products/${randomObjectId}</stringProp>
@@ -48,15 +48,25 @@
             <stringProp name="cacheKey">true</stringProp>
             <stringProp name="filename"></stringProp>
             <stringProp name="parameters"></stringProp>
-            <stringProp name="script">// Use real product ID prefix from your DB + random suffix
-String prefix = "68f1f642023c5a0";
-String suffix = "";
-Random rand = new Random();
-// Generate 6 more hex chars to make 24 total
-for(int i = 0; i &lt; 9; i++) {
-    suffix += Integer.toHexString(rand.nextInt(16));
-}
-vars.put("randomObjectId", prefix + suffix);</stringProp>
+            <stringProp name="script">
+              Random rand = new Random();
+              String prefix = "68f1f642023c5a0cd69";
+              String key;
+
+              if ((rand.nextInt(100) &lt; 60) &amp;&amp; (vars.get("randomObjectId") != null)) {
+                  key = vars.get("randomObjectId");
+              } else {
+                  StringBuilder suffix = new StringBuilder();
+                  for (int i = 0; i &lt; 5; i++) {
+                      suffix.append(Integer.toHexString(rand.nextInt(16)));
+                  }
+                  key = prefix + suffix.toString();
+                  vars.put("randomObjectId", key);
+              }
+
+              vars.put("objectId", key);
+            </stringProp>
+
             <stringProp name="scriptLanguage">groovy</stringProp>
           </JSR223PreProcessor>
           <hashTree/>
