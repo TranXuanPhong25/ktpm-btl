@@ -1,7 +1,77 @@
 global:
-  scrape_interval: 5s
+   scrape_interval: 5s
+   evaluation_interval: 5s
+   external_labels:
+      cluster: "ecommerce-cluster"
+      environment: "production"
 
 scrape_configs:
-  - job_name: 'cadvisor'
-    static_configs:
-      - targets: ['cadvisor:8080']
+   # Container metrics
+   - job_name: "cadvisor"
+     static_configs:
+        - targets: ["cadvisor:8080"]
+
+   # Envoy Proxy metrics for all services
+   - job_name: "envoy-user-service"
+     metrics_path: "/stats/prometheus"
+     static_configs:
+        - targets: ["user-service-envoy:9901"]
+          labels:
+             service: "user-service"
+             proxy: "envoy"
+
+   - job_name: "envoy-product-service"
+     metrics_path: "/stats/prometheus"
+     static_configs:
+        - targets: ["product-service-envoy:9901"]
+          labels:
+             service: "product-service"
+             proxy: "envoy"
+
+   - job_name: "envoy-cart-service"
+     metrics_path: "/stats/prometheus"
+     static_configs:
+        - targets: ["cart-service-envoy:9901"]
+          labels:
+             service: "cart-service"
+             proxy: "envoy"
+
+   - job_name: "envoy-order-service"
+     metrics_path: "/stats/prometheus"
+     static_configs:
+        - targets: ["order-service-envoy:9901"]
+          labels:
+             service: "order-service"
+             proxy: "envoy"
+
+   - job_name: "envoy-payment-service"
+     metrics_path: "/stats/prometheus"
+     static_configs:
+        - targets: ["payment-service-envoy:9901"]
+          labels:
+             service: "payment-service"
+             proxy: "envoy"
+
+   - job_name: "envoy-notification-service"
+     metrics_path: "/stats/prometheus"
+     static_configs:
+        - targets: ["notification-service-envoy:9901"]
+          labels:
+             service: "notification-service"
+             proxy: "envoy"
+
+   # Jaeger metrics (if exposed)
+   - job_name: "jaeger"
+     static_configs:
+        - targets: ["jaeger:14269"]
+          labels:
+             service: "jaeger"
+             component: "tracing"
+
+   # RabbitMQ metrics (if prometheus plugin enabled)
+   - job_name: "rabbitmq"
+     static_configs:
+        - targets: ["rabbitmq:15692"]
+          labels:
+             service: "rabbitmq"
+             component: "messaging"
