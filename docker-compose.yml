@@ -34,8 +34,22 @@ services:
       # deploy:
       #   replicas: 2
 
-   product-service:
-      build: ./product-service
+   product-inventory:
+      build: ./product-inventory
+      environment:
+         - POSTGRES_URI=
+      networks:
+         - ecommerce-network
+      depends_on:
+      deploy:
+         replicas: 4
+         resources:
+            limits:
+               cpus: "1.0"
+               memory: 500mb
+
+   product-catalog:
+      build: ./product-catalog
       environment:
          - MONGO_URI=mongodb://mongo-products:27017/ecommerce-products
          - REDIS_DATABASE_URI=redis://redis-product:6379
