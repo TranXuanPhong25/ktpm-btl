@@ -16,7 +16,7 @@ app.use("/api/products", productRoutes);
 const sequelize = database.getConnection();
 
 database
-   .connect() 
+   .connect()
    .then(async () => {
       await sequelize.sync({ alter: true });
       console.log("🔄 Database models synchronized");
