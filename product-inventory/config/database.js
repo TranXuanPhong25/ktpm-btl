@@ -2,8 +2,7 @@ const { Sequelize } = require("sequelize");
 
 class Database {
    constructor() {
-      const postgresURI =
-         process.env.POSTGRES_URI || "";
+      const postgresURI = process.env.POSTGRES_URI || "";
 
       const options = {
          dialect: "postgres",
