@@ -158,18 +158,18 @@ services:
                cpus: "1.0"
                memory: 500mb
 
-   product-service-envoy:
+   product-catalog-envoy:
       image: envoyproxy/envoy:v1.31-latest
-      container_name: product-service-envoy
+      container_name: product-catalog-envoy
       ports:
          - "5001:8080"
          - "9902:9901"
       volumes:
-         - ./envoy/product-service-envoy.yml:/etc/envoy/envoy.yml
+         - ./envoy/product-catalog-envoy.yml:/etc/envoy/envoy.yml
       networks:
          - ecommerce-network
       depends_on:
-         - product-service
+         - product-catalog
          - jaeger
       command:
          [
@@ -177,7 +177,30 @@ services:
             "-c",
             "/etc/envoy/envoy.yml",
             "--service-cluster",
-            "product-service-proxy",
+            "product-catalog-proxy",
+            "--log-level",
+            "info",
+         ]
+   product-inventory-envoy:
+      image: envoyproxy/envoy:v1.31-latest
+      container_name: product-inventory-envoy
+      ports:
+         - "5001:8080"
+         - "9902:9901"
+      volumes:
+         - ./envoy/product-inventory-envoy.yml:/etc/envoy/envoy.yml
+      networks:
+         - ecommerce-network
+      depends_on:
+         - product-inventory
+         - jaeger
+      command:
+         [
+            "envoy",
+            "-c",
+            "/etc/envoy/envoy.yml",
+            "--service-cluster",
+            "product-inventory-proxy",
             "--log-level",
             "info",
          ]
@@ -215,7 +238,7 @@ services:
       build: ./shopping-cart-service
       environment:
          - MONGO_URI=mongodb://mongo-cart:27017/ecommerce-cart
-         - PRODUCT_SERVICE_URI=http://product-catalog:5001
+         - PRODUCT_SERVICE_URI=http://product-catalog-envoy:8080
          - PORT=5002
          - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672
       networks:
