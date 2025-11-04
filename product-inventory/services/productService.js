@@ -2,47 +2,11 @@ const productRepository = require("../repositories/productRepository");
 
 class ProductService {
    /**
-    * Create a new product with validation
-    * @param {Object} productData - Product data
-    * @returns {Promise<Object>} Created product
-    */
-   async createProduct(productData) {
-      const { name, description, price, category, stock } = productData;
-
-      // Validation
-      if (!name || !description || !price || !category) {
-         throw new Error(
-            "Missing required fields: name, description, price, category"
-         );
-      }
-
-      if (price <= 0) {
-         throw new Error("Price must be greater than 0");
-      }
-
-      if (stock && stock < 0) {
-         throw new Error("Stock cannot be negative");
-      }
-
-      // Create product through repository
-      return await productRepository.create({
-         name,
-         description,
-         price,
-         category,
-         stock: stock || 0,
-      });
-   }
-
-   /**
     * Get all products
     * @param {Object} filters - Optional filters
     * @returns {Promise<Array>} List of products
     */
-   async getAllProducts(filters = {}) {
-      if (filters.category) {
-         return await productRepository.findByCategory(filters.category);
-      }
+   async getAllProducts() {
       return await productRepository.findAll();
    }
 
@@ -96,7 +60,7 @@ class ProductService {
          throw new Error("Product ID is required");
       }
 
-      const { name, description, price, category, stock } = updateData;
+      const { price, stock } = updateData;
 
       // Validation
       if (price !== undefined && price <= 0) {
@@ -115,10 +79,7 @@ class ProductService {
 
       // Update product
       const updatedProduct = await productRepository.update(productId, {
-         name,
-         description,
          price,
-         category,
          stock,
       });
 
@@ -158,23 +119,12 @@ class ProductService {
          throw new Error("Quantity must be greater than 0");
       }
 
-      // Check if product exists and has sufficient stock
-      const hasEnoughStock = await productRepository.hasStock(
+      const updatedProduct = await productRepository.deductStock(
          productId,
          quantity
       );
-      if (!hasEnoughStock) {
-         const product = await productRepository.findById(productId);
-         if (!product) {
-            throw new Error("Product not found");
-         }
-         throw new Error(
-            `Insufficient stock. Available: ${product.stock}, Requested: ${quantity}`
-         );
-      }
 
-      // Deduct stock
-      return await productRepository.deductStock(productId, quantity);
+      return updatedProduct;
    }
 
    /**
@@ -182,35 +132,21 @@ class ProductService {
     * @param {Array<{ id: string, quantity: number }>} updates - List of productId and quantity
     * @returns {Promise<Array<Object>>} List of updated products
     */
+   // ProductService.js - bulkDeductStock (BẢN SỬA)
    async bulkDeductStock(updates) {
       if (!Array.isArray(updates) || updates.length === 0) {
          throw new Error("updates must be a non-empty array");
       }
 
-      // Check if product exists and has sufficient stock
-      await Promise.all(
-         updates.map(async ({ id, quantity }) => {
-            if (!id) throw new Error("Product ID is required in updates");
-            if (!quantity || quantity <= 0)
-               throw new Error(`Invalid quantity for product ${id}`);
-
-            const hasEnoughStock = await productRepository.hasStock(
-               id,
-               quantity
+      for (const { id, quantity } of updates) {
+         if (!id) throw new Error("Product ID is required in updates");
+         if (!quantity || quantity <= 0) {
+            throw new Error(
+               `Invalid quantity for product ${id}. Must be greater than 0`
             );
-            if (!hasEnoughStock) {
-               const product = await productRepository.findById(id);
-               if (!product) {
-                  throw new Error(`Product ${id} not found`);
-               }
-               throw new Error(
-                  `Insufficient stock for product ${id}. Available: ${product.stock}, Requested: ${quantity}`
-               );
-            }
-         })
-      );
+         }
+      }
 
-      // Deduct stock
       return await productRepository.bulkDeductStock(updates);
    }
 
@@ -224,19 +160,11 @@ class ProductService {
       if (!productId) {
          throw new Error("Product ID is required");
       }
-
       if (!quantity || quantity <= 0) {
          throw new Error("Quantity must be greater than 0");
       }
 
-      const product = await productRepository.findById(productId);
-      if (!product) {
-         throw new Error("Product not found");
-      }
-
-      return await productRepository.update(productId, {
-         stock: product.stock + quantity,
-      });
+      return await productRepository.addStock(productId, quantity);
    }
 
    /**
@@ -256,25 +184,11 @@ class ProductService {
       }
 
       return {
-         productId: product._id,
-         name: product.name,
+         productId: product.id,
          requestedQuantity: quantity,
          availableStock: product.stock,
          isAvailable: product.stock >= quantity,
       };
-   }
-
-   /**
-    * Get products by category
-    * @param {string} category - Product category
-    * @returns {Promise<Array>} List of products
-    */
-   async getProductsByCategory(category) {
-      if (!category) {
-         throw new Error("Category is required");
-      }
-
-      return await productRepository.findByCategory(category);
    }
 
    /**
@@ -283,8 +197,7 @@ class ProductService {
     * @returns {Promise<Array>} List of low stock products
     */
    async getLowStockProducts(threshold = 10) {
-      const allProducts = await productRepository.findAll();
-      return allProducts.filter((product) => product.stock <= threshold);
+      return await productRepository.findLowStock(threshold);
    }
 }
 

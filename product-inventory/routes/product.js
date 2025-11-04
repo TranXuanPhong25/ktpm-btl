@@ -1,13 +1,8 @@
 const express = require("express");
 const os = require("os");
 const productService = require("../services/productService");
-const productCacheService = require("../services/productCacheService");
 
 const router = express.Router();
-
-router.get("/testlb", (req, res) => {
-   res.json({ msg: `Response from Product Service at ${os.hostname()}` });
-});
 
 // Create Product
 router.post("/", async (req, res) => {
@@ -25,11 +20,7 @@ router.post("/", async (req, res) => {
 // Get All Products
 router.get("/", async (req, res) => {
    try {
-      const filters = {};
-      if (req.query.category) {
-         filters.category = req.query.category;
-      }
-      const products = await productService.getAllProducts(filters);
+      const products = await productService.getAllProducts();
       return res.json(products);
    } catch (err) {
       res.status(500).json({ msg: err.message });
@@ -39,7 +30,7 @@ router.get("/", async (req, res) => {
 // Get Product by ID
 router.get("/:id", async (req, res) => {
    try {
-      const product = await productCacheService.getProductById(req.params.id);
+      const product = await productService.getProductById(req.params.id);
       return res.json(product);
    } catch (err) {
       if (err.message === "Product not found") {

@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: product-service
+  name: product-inventory
   labels:
-    app: product-service
+    app: product-inventory
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: product-service
+      app: product-inventory
   template:
     metadata:
       labels:
-        app: product-service
+        app: product-inventory
     spec:
       containers:
-        - name: product-service
-          image: thisisaarush/product-service:latest
+        - name: product-inventory
+          image: thisisaarush/product-inventory:latest
           ports:
             - containerPort: 5001

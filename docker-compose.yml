@@ -120,9 +120,23 @@ services:
             "info",
          ]
 
-   product-service:
-      build: ./product-service
-      restart: always
+   product-inventory:
+      build: ./product-inventory
+      environment:
+         - POSTGRES_URI=postgres://postgres:postgres@products-inventory-pg:5432/postgres
+      networks:
+         - ecommerce-network
+      depends_on:
+         - products-inventory-pg
+      deploy:
+         replicas: 4
+         resources:
+            limits:
+               cpus: "1.0"
+               memory: 500mb
+
+   product-catalog:
+      build: ./product-catalog
       environment:
          - MONGO_URI=mongodb://mongo-products:27017/ecommerce-products
          - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672
@@ -201,7 +215,7 @@ services:
       build: ./shopping-cart-service
       environment:
          - MONGO_URI=mongodb://mongo-cart:27017/ecommerce-cart
-         - PRODUCT_SERVICE_URI=http://product-service:5001
+         - PRODUCT_SERVICE_URI=http://product-catalog:5001
          - PORT=5002
          - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672
       networks:
@@ -245,7 +259,7 @@ services:
       build: ./order-service
       environment:
          - MONGO_URI=mongodb://mongo-orders:27017/ecommerce-orders
-         - PRODUCT_SERVICE_URI=http://product-service-envoy:8080
+         - PRODUCT_SERVICE_URI=http://product-catalog-envoy:8080
          - SHOPPING_CART_SERVICE_URI=http://cart-service-envoy:8080
          - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672
       networks:
@@ -431,6 +445,16 @@ services:
             limits:
                cpus: "0.5"
                memory: 512M
+   products-inventory-pg:
+      image: postgres:15-alpine
+      environment:
+         - POSTGRES_USER=postgres
+         - POSTGRES_PASSWORD=postgres
+         - POSTGRES_DB=postgres
+      networks:
+         - ecommerce-network
+      volumes:
+         - product_inventory_pg:/var/lib/postgresql/data
 
    client:
       build: ./client
@@ -452,7 +476,7 @@ services:
          - ecommerce-network
       depends_on:
          - user-service
-         - product-service
+         - product-catalog
          - shopping-cart-service
          - order-service
          - payment-service
@@ -517,6 +541,7 @@ volumes:
    influxdb-data: {}
    grafana-data: {}
    redis_data: {}
+   product_inventory_pg: {}
 networks:
    ecommerce-network:
       driver: bridge
