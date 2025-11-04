@@ -37,10 +37,11 @@ services:
    product-inventory:
       build: ./product-inventory
       environment:
-         - POSTGRES_URI=
+         - POSTGRES_URI=postgres://postgres:postgres@products-inventory-pg:5432/postgres
       networks:
          - ecommerce-network
       depends_on:
+         - products-inventory-pg
       deploy:
          replicas: 4
          resources:
@@ -103,7 +104,7 @@ services:
       build: ./shopping-cart-service
       environment:
          - MONGO_URI=mongodb://mongo-cart:27017/ecommerce-cart
-         - PRODUCT_SERVICE_URI=http://product-service:5001
+         - PRODUCT_SERVICE_URI=http://product-catalog:5001
          - PORT=5002
       networks:
          - ecommerce-network
@@ -119,7 +120,7 @@ services:
       build: ./order-service
       environment:
          - MONGO_URI=mongodb://mongo-orders:27017/ecommerce-orders
-         - PRODUCT_SERVICE_URI=http://product-service:5001
+         - PRODUCT_SERVICE_URI=http://product-catalog:5001
       networks:
          - ecommerce-network
       depends_on:
@@ -224,6 +225,16 @@ services:
             limits:
                cpus: "0.5"
                memory: 512M
+   products-inventory-pg:
+      image: postgres:15-alpine
+      environment:
+         - POSTGRES_USER=postgres
+         - POSTGRES_PASSWORD=postgres
+         - POSTGRES_DB=postgres
+      networks:
+         - ecommerce-network
+      volumes:
+         - product_inventory_pg:/var/lib/postgresql/data
 
    client:
       build: ./client
@@ -245,7 +256,7 @@ services:
          - ecommerce-network
       depends_on:
          - user-service
-         - product-service
+         - product-catalog
          - shopping-cart-service
          - order-service
          - payment-service
@@ -310,6 +321,7 @@ volumes:
    influxdb-data: {}
    grafana-data: {}
    redis_data: {}
+   product_inventory_pg: {}
 networks:
    ecommerce-network:
       driver: bridge
