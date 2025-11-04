@@ -3,27 +3,10 @@ const productService = require("../services/productService");
 
 const router = express.Router();
 
-// Create Product
-router.post("/", async (req, res) => {
-   try {
-      const newProduct = await productService.createProduct(req.body);
-      return res.status(201).json(newProduct);
-   } catch (err) {
-      if (err.message.includes("required") || err.message.includes("must be")) {
-         return res.status(400).json({ msg: err.message });
-      }
-      res.status(500).json({ msg: err.message });
-   }
-});
-
 // Get All Products
 router.get("/", async (req, res) => {
    try {
-      const filters = {};
-      if (req.query.category) {
-         filters.category = req.query.category;
-      }
-      const products = await productService.getAllProducts(filters);
+      const products = await productService.getAllProducts();
       return res.json(products);
    } catch (err) {
       res.status(500).json({ msg: err.message });

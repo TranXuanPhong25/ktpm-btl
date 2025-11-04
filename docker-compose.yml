@@ -34,31 +34,77 @@ services:
       # deploy:
       #   replicas: 2
 
-   product-service:
-      build: ./product-service
-      ports:
-         - 5001:5001
+   product-inventory:
+      build: ./product-inventory
+      environment:
+         - POSTGRES_URI=postgres://postgres:postgres@products-inventory-pg:5432/postgres
+      networks:
+         - ecommerce-network
+      depends_on:
+         - products-inventory-pg
+      deploy:
+         replicas: 4
+         resources:
+            limits:
+               cpus: "1.0"
+               memory: 500mb
+
+   product-catalog:
+      build: ./product-catalog
       environment:
          - MONGO_URI=mongodb://mongo-products:27017/ecommerce-products
+         - REDIS_DATABASE_URI=redis://redis-product:6379
          - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
       networks:
          - ecommerce-network
       depends_on:
          mongo-products:
             condition: service_started
+         redis-product:
+            condition: service_started
          rabbitmq:
             condition: service_healthy
       deploy:
-         replicas: 1
+         replicas: 4
          resources:
             limits:
                cpus: "1.0"
                memory: 500mb
+
+   redis-product:
+      image: redis:8.2.2
+      container_name: redis-product
+      restart: always
+      ports:
+         - "6379:6379"
+      volumes:
+         - redis_data:/data
+      command:
+         [
+            "redis-server",
+            "--appendonly",
+            "yes",
+            "--maxmemory",
+            "256mb",
+            "--maxmemory-policy",
+            "allkeys-lru",
+            "--tcp-keepalive",
+            "60",
+            "--timeout",
+            "300",
+         ]
+      networks:
+         - ecommerce-network
+      healthcheck:
+         test: ["CMD", "redis-cli", "ping"]
+         interval: 5s
+         timeout: 3s
+         retries: 5
    shopping-cart-service:
       build: ./shopping-cart-service
       environment:
          - MONGO_URI=mongodb://mongo-cart:27017/ecommerce-cart
-         - PRODUCT_SERVICE_URI=http://product-service:5001
+         - PRODUCT_SERVICE_URI=http://product-catalog:5001
          - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
          - PORT=5002
       networks:
@@ -77,7 +123,7 @@ services:
       # - 5003:5003
       environment:
          - MONGO_URI=mongodb://mongo-orders:27017/ecommerce-orders
-         - PRODUCT_SERVICE_URI=http://product-service:5001
+         - PRODUCT_SERVICE_URI=http://product-catalog:5001
          - SHOPPING_CART_SERVICE_URI=http://shopping-cart-service:5002
          - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
          - PORT=5003
@@ -213,6 +259,16 @@ services:
             limits:
                cpus: "0.5"
                memory: 512M
+   products-inventory-pg:
+      image: postgres:15-alpine
+      environment:
+         - POSTGRES_USER=postgres
+         - POSTGRES_PASSWORD=postgres
+         - POSTGRES_DB=postgres
+      networks:
+         - ecommerce-network
+      volumes:
+         - product_inventory_pg:/var/lib/postgresql/data
 
    client:
       build: ./client
@@ -234,7 +290,7 @@ services:
          - ecommerce-network
       depends_on:
          - user-service
-         - product-service
+         - product-catalog
          - shopping-cart-service
          - order-service
          - payment-service
@@ -299,7 +355,8 @@ volumes:
    influxdb-data: {}
    grafana-data: {}
    rabbitmq-data: {}
-
+   redis_data: {}
+   product_inventory_pg: {}
 networks:
    ecommerce-network:
       driver: bridge

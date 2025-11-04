@@ -35,18 +35,18 @@ database
       await orderEventHandler.initialize(rabbitMQUri);
 
       app.listen(PORT, () => {
-         console.log(`Product service is running on port ${PORT}`);
+         console.log(`Product Catalog is running on port ${PORT}`);
       });
    })
    .catch((err) => {
-      console.error("Failed to start Product Service:", err.message);
+      console.error("Failed to start Product Catalog:", err.message);
       process.exit(1);
    });
 
 // Graceful shutdown
 process.on("SIGINT", async () => {
-   console.log("\nShutting down Product Service...");
    await orderEventHandler.close();
+   console.log("\nShutting down Product Catalog...");
    await database.disconnect();
    process.exit(0);
 });

@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: product-service
+  name: product-catalog
   labels:
-    app: product-service
+    app: product-catalog
 spec:
   ports:
     - port: 5001
       targetPort: 5001
   selector:
-    app: product-service
+    app: product-catalog
   type: ClusterIP
