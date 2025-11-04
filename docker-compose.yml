@@ -1,8 +1,55 @@
 services:
+   # RabbitMQ Message Broker
+   rabbitmq:
+      image: rabbitmq:3-management
+      container_name: rabbitmq
+      ports:
+         - "5672:5672" # AMQP port
+         - "15672:15672" # Management UI
+      environment:
+         - RABBITMQ_DEFAULT_USER=guest
+         - RABBITMQ_DEFAULT_PASS=guest
+      networks:
+         - ecommerce-network
+      healthcheck:
+         test: ["CMD", "rabbitmq-diagnostics", "ping"]
+         interval: 10s
+         timeout: 5s
+         retries: 5
+      deploy:
+         resources:
+            limits:
+               cpus: "1.0"
+               memory: 512mb
+
+   # Jaeger for distributed tracing
+   jaeger:
+      image: jaegertracing/all-in-one:latest
+      container_name: jaeger
+      ports:
+         - "5775:5775/udp"
+         - "6831:6831/udp"
+         - "6832:6832/udp"
+         - "5778:5778"
+         - "16686:16686" # Jaeger UI
+         - "14268:14268"
+         - "14250:14250"
+         - "9411:9411" # Zipkin compatible endpoint
+         - "4317:4317" # OTLP gRPC
+         - "4318:4318" # OTLP HTTP
+      environment:
+         - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+         - COLLECTOR_OTLP_ENABLED=true
+      networks:
+         - ecommerce-network
+      deploy:
+         resources:
+            limits:
+               cpus: "1.0"
+               memory: 512mb
+
    auth-service:
       build: ./auth-service
-      ports:
-         - 5006:5006
       environment:
          - JWT_SECRET=${JWT_SECRET}
          - USER_SERVICE_GRPC_URI=user-service:50051
@@ -14,25 +61,64 @@ services:
                cpus: "1.0"
                memory: 500mb
 
-   user-service:
-      build: ./user-service
+   auth-service-envoy:
+      image: envoyproxy/envoy:v1.31-latest
+      container_name: auth-service-envoy
       ports:
-         - 5000:5000
-         - 50051:50051
-      environment:
-         - MONGO_URI=mongodb://mongo-users:27017/ecommerce-users
-         - JWT_SECRET=${JWT_SECRET}
+         - "5006:8080"
+         - "9907:9901"
+      volumes:
+         - ./envoy/auth-service-envoy.yml:/etc/envoy/envoy.yml
       networks:
          - ecommerce-network
       depends_on:
-         - mongo-users
+         - auth-service
+         - jaeger
+      command:
+         ["-c", "/etc/envoy/envoy.yml", "--service-cluster", "auth-service"]
+
+   user-service:
+      build: ./user-service
+      environment:
+         - MONGO_URI=mongodb://mongo-users:27017/ecommerce-users
+         - JWT_SECRET=${JWT_SECRET}
+         - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672
+      networks:
+         - ecommerce-network
+      depends_on:
+         rabbitmq:
+            condition: service_healthy
+         mongo-users:
+            condition: service_started
       deploy:
          resources:
             limits:
                cpus: "1.0"
                memory: 500mb
-      # deploy:
-      #   replicas: 2
+
+   user-service-envoy:
+      image: envoyproxy/envoy:v1.31-latest
+      container_name: user-service-envoy
+      ports:
+         - "5000:8080"
+         - "9901:9901"
+      volumes:
+         - ./envoy/user-service-envoy.yml:/etc/envoy/envoy.yml
+      networks:
+         - ecommerce-network
+      depends_on:
+         - user-service
+         - jaeger
+      command:
+         [
+            "envoy",
+            "-c",
+            "/etc/envoy/envoy.yml",
+            "--service-cluster",
+            "user-service-proxy",
+            "--log-level",
+            "info",
+         ]
 
    product-inventory:
       build: ./product-inventory
@@ -53,23 +139,71 @@ services:
       build: ./product-catalog
       environment:
          - MONGO_URI=mongodb://mongo-products:27017/ecommerce-products
+         - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672
          - REDIS_DATABASE_URI=redis://redis-product:6379
          # - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
       networks:
          - ecommerce-network
       depends_on:
+         rabbitmq:
+            condition: service_healthy
          mongo-products:
             condition: service_started
          redis-product:
             condition: service_started
-         # rabbitmq:
-         #    condition: service_healthy
       deploy:
          replicas: 4
          resources:
             limits:
                cpus: "1.0"
                memory: 500mb
+
+   product-catalog-envoy:
+      image: envoyproxy/envoy:v1.31-latest
+      container_name: product-catalog-envoy
+      ports:
+         - "5001:8080"
+         - "9902:9901"
+      volumes:
+         - ./envoy/product-catalog-envoy.yml:/etc/envoy/envoy.yml
+      networks:
+         - ecommerce-network
+      depends_on:
+         - product-catalog
+         - jaeger
+      command:
+         [
+            "envoy",
+            "-c",
+            "/etc/envoy/envoy.yml",
+            "--service-cluster",
+            "product-catalog-proxy",
+            "--log-level",
+            "info",
+         ]
+   product-inventory-envoy:
+      image: envoyproxy/envoy:v1.31-latest
+      container_name: product-inventory-envoy
+      ports:
+         - "5001:8080"
+         - "9902:9901"
+      volumes:
+         - ./envoy/product-inventory-envoy.yml:/etc/envoy/envoy.yml
+      networks:
+         - ecommerce-network
+      depends_on:
+         - product-inventory
+         - jaeger
+      command:
+         [
+            "envoy",
+            "-c",
+            "/etc/envoy/envoy.yml",
+            "--service-cluster",
+            "product-inventory-proxy",
+            "--log-level",
+            "info",
+         ]
 
    redis-product:
       image: redis:8.2.2
@@ -104,33 +238,90 @@ services:
       build: ./shopping-cart-service
       environment:
          - MONGO_URI=mongodb://mongo-cart:27017/ecommerce-cart
-         - PRODUCT_SERVICE_URI=http://product-catalog:5001
+         - PRODUCT_SERVICE_URI=http://product-catalog-envoy:8080
          - PORT=5002
+         - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672
       networks:
          - ecommerce-network
       depends_on:
-         - mongo-cart
+         rabbitmq:
+            condition: service_healthy
+         mongo-cart:
+            condition: service_started
       deploy:
          resources:
             limits:
                cpus: "2.0"
                memory: 1G
 
+   cart-service-envoy:
+      image: envoyproxy/envoy:v1.31-latest
+      container_name: cart-service-envoy
+      ports:
+         - "5002:8080"
+         - "9903:9901"
+      volumes:
+         - ./envoy/cart-service-envoy.yml:/etc/envoy/envoy.yml
+      networks:
+         - ecommerce-network
+      depends_on:
+         - shopping-cart-service
+         - jaeger
+      command:
+         [
+            "envoy",
+            "-c",
+            "/etc/envoy/envoy.yml",
+            "--service-cluster",
+            "cart-service-proxy",
+            "--log-level",
+            "info",
+         ]
+
    order-service:
       build: ./order-service
       environment:
          - MONGO_URI=mongodb://mongo-orders:27017/ecommerce-orders
-         - PRODUCT_SERVICE_URI=http://product-catalog:5001
+         - PRODUCT_SERVICE_URI=http://product-catalog-envoy:8080
+         - SHOPPING_CART_SERVICE_URI=http://cart-service-envoy:8080
+         - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672
       networks:
          - ecommerce-network
       depends_on:
-         - mongo-orders
+         rabbitmq:
+            condition: service_healthy
+         mongo-orders:
+            condition: service_started
       deploy:
          replicas: 3
          resources:
             limits:
                cpus: "1.0"
                memory: 500mb
+
+   order-service-envoy:
+      image: envoyproxy/envoy:v1.31-latest
+      container_name: order-service-envoy
+      ports:
+         - "5003:8080"
+         - "9904:9901"
+      volumes:
+         - ./envoy/order-service-envoy.yml:/etc/envoy/envoy.yml
+      networks:
+         - ecommerce-network
+      depends_on:
+         - order-service
+         - jaeger
+      command:
+         [
+            "envoy",
+            "-c",
+            "/etc/envoy/envoy.yml",
+            "--service-cluster",
+            "order-service-proxy",
+            "--log-level",
+            "info",
+         ]
 
    payment-service:
       build: ./payment-service
@@ -140,9 +331,34 @@ services:
       networks:
          - ecommerce-network
       depends_on:
-         - mongo-payments
-      # deploy:
-      #   replicas: 2
+         rabbitmq:
+            condition: service_healthy
+         mongo-payments:
+            condition: service_started
+
+   payment-service-envoy:
+      image: envoyproxy/envoy:v1.31-latest
+      container_name: payment-service-envoy
+      ports:
+         - "5004:8080"
+         - "9905:9901"
+      volumes:
+         - ./envoy/payment-service-envoy.yml:/etc/envoy/envoy.yml
+      networks:
+         - ecommerce-network
+      depends_on:
+         - payment-service
+         - jaeger
+      command:
+         [
+            "envoy",
+            "-c",
+            "/etc/envoy/envoy.yml",
+            "--service-cluster",
+            "payment-service-proxy",
+            "--log-level",
+            "info",
+         ]
 
    notification-service:
       build: ./notification-service
@@ -154,6 +370,33 @@ services:
          - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
       networks:
          - ecommerce-network
+      depends_on:
+         rabbitmq:
+            condition: service_healthy
+
+   notification-service-envoy:
+      image: envoyproxy/envoy:v1.31-latest
+      container_name: notification-service-envoy
+      ports:
+         - "5005:8080"
+         - "9906:9901"
+      volumes:
+         - ./envoy/notification-service-envoy.yml:/etc/envoy/envoy.yml
+      networks:
+         - ecommerce-network
+      depends_on:
+         - notification-service
+         - jaeger
+      command:
+         [
+            "envoy",
+            "-c",
+            "/etc/envoy/envoy.yml",
+            "--service-cluster",
+            "notification-service-proxy",
+            "--log-level",
+            "info",
+         ]
 
    # Separate MongoDB instances for each service
    mongo-users:

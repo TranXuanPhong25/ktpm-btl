@@ -1,0 +1,128 @@
+{
+   "dashboard": {
+      "title": "Envoy Proxy - Microservices Overview",
+      "tags": ["envoy", "microservices", "observability"],
+      "timezone": "browser",
+      "schemaVersion": 16,
+      "version": 0,
+      "refresh": "5s",
+      "panels": [
+         {
+            "id": 1,
+            "title": "Total Requests per Service",
+            "type": "graph",
+            "targets": [
+               {
+                  "expr": "sum(rate(envoy_http_downstream_rq_total[1m])) by (service)",
+                  "legendFormat": "{{service}}"
+               }
+            ],
+            "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+         },
+         {
+            "id": 2,
+            "title": "Response Codes Distribution",
+            "type": "graph",
+            "targets": [
+               {
+                  "expr": "sum(rate(envoy_http_downstream_rq_2xx[1m])) by (service)",
+                  "legendFormat": "{{service}} - 2xx"
+               },
+               {
+                  "expr": "sum(rate(envoy_http_downstream_rq_4xx[1m])) by (service)",
+                  "legendFormat": "{{service}} - 4xx"
+               },
+               {
+                  "expr": "sum(rate(envoy_http_downstream_rq_5xx[1m])) by (service)",
+                  "legendFormat": "{{service}} - 5xx"
+               }
+            ],
+            "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+         },
+         {
+            "id": 3,
+            "title": "Request Latency (p95)",
+            "type": "graph",
+            "targets": [
+               {
+                  "expr": "histogram_quantile(0.95, sum(rate(envoy_http_downstream_rq_time_bucket[1m])) by (service, le))",
+                  "legendFormat": "{{service}} - p95"
+               }
+            ],
+            "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+         },
+         {
+            "id": 4,
+            "title": "Active Connections",
+            "type": "graph",
+            "targets": [
+               {
+                  "expr": "sum(envoy_http_downstream_cx_active) by (service)",
+                  "legendFormat": "{{service}}"
+               }
+            ],
+            "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
+         },
+         {
+            "id": 5,
+            "title": "Retry Rate",
+            "type": "graph",
+            "targets": [
+               {
+                  "expr": "sum(rate(envoy_cluster_upstream_rq_retry[1m])) by (service)",
+                  "legendFormat": "{{service}} - retries"
+               },
+               {
+                  "expr": "sum(rate(envoy_cluster_upstream_rq_retry_success[1m])) by (service)",
+                  "legendFormat": "{{service}} - retry success"
+               }
+            ],
+            "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 }
+         },
+         {
+            "id": 6,
+            "title": "Health Check Status",
+            "type": "stat",
+            "targets": [
+               {
+                  "expr": "sum(envoy_cluster_health_check_success) by (service)",
+                  "legendFormat": "{{service}}"
+               }
+            ],
+            "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 }
+         },
+         {
+            "id": 7,
+            "title": "Request Rate by Method",
+            "type": "graph",
+            "targets": [
+               {
+                  "expr": "sum(rate(envoy_http_downstream_rq_total[1m])) by (service, http_request_method)",
+                  "legendFormat": "{{service}} - {{http_request_method}}"
+               }
+            ],
+            "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 }
+         },
+         {
+            "id": 8,
+            "title": "Upstream Request Time",
+            "type": "graph",
+            "targets": [
+               {
+                  "expr": "histogram_quantile(0.50, sum(rate(envoy_cluster_upstream_rq_time_bucket[1m])) by (service, le))",
+                  "legendFormat": "{{service}} - p50"
+               },
+               {
+                  "expr": "histogram_quantile(0.95, sum(rate(envoy_cluster_upstream_rq_time_bucket[1m])) by (service, le))",
+                  "legendFormat": "{{service}} - p95"
+               },
+               {
+                  "expr": "histogram_quantile(0.99, sum(rate(envoy_cluster_upstream_rq_time_bucket[1m])) by (service, le))",
+                  "legendFormat": "{{service}} - p99"
+               }
+            ],
+            "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 }
+         }
+      ]
+   }
+}

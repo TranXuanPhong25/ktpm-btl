@@ -1,7 +1,21 @@
 const express = require("express");
+const os = require("os");
 const productService = require("../services/productService");
 
 const router = express.Router();
+
+// Create Product
+router.post("/", async (req, res) => {
+   try {
+      const newProduct = await productService.createProduct(req.body);
+      return res.status(201).json(newProduct);
+   } catch (err) {
+      if (err.message.includes("required") || err.message.includes("must be")) {
+         return res.status(400).json({ msg: err.message });
+      }
+      res.status(500).json({ msg: err.message });
+   }
+});
 
 // Get All Products
 router.get("/", async (req, res) => {
