@@ -30,7 +30,7 @@ static_resources:
                              routes:
                                 - match: { prefix: "/" }
                                   route:
-                                     cluster: product_inventor
+                                     cluster: product_catalog
                                      retry_policy:
                                         retry_on: "5xx,connect-failure,refused-stream"
                                         num_retries: 3

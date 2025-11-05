@@ -19,7 +19,7 @@ static_resources:
                               grpc_service:
                                  envoy_grpc:
                                     cluster_name: jaeger
-                              service_name: product-inventor
+                              service_name: product-inventory
                         random_sampling:
                            value: 100.0
                      route_config:
@@ -30,7 +30,7 @@ static_resources:
                              routes:
                                 - match: { prefix: "/" }
                                   route:
-                                     cluster: product_inventor
+                                     cluster: product_inventory
                                      retry_policy:
                                         retry_on: "5xx,connect-failure,refused-stream"
                                         num_retries: 3

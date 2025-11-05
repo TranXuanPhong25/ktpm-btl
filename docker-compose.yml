@@ -1,27 +1,4 @@
 services:
-   # RabbitMQ Message Broker
-   rabbitmq:
-      image: rabbitmq:3-management
-      container_name: rabbitmq
-      ports:
-         - "5672:5672" # AMQP port
-         - "15672:15672" # Management UI
-      environment:
-         - RABBITMQ_DEFAULT_USER=guest
-         - RABBITMQ_DEFAULT_PASS=guest
-      networks:
-         - ecommerce-network
-      healthcheck:
-         test: ["CMD", "rabbitmq-diagnostics", "ping"]
-         interval: 10s
-         timeout: 5s
-         retries: 5
-      deploy:
-         resources:
-            limits:
-               cpus: "1.0"
-               memory: 512mb
-
    # Jaeger for distributed tracing
    jaeger:
       image: jaegertracing/all-in-one:latest
@@ -52,7 +29,7 @@ services:
       build: ./auth-service
       environment:
          - JWT_SECRET=${JWT_SECRET}
-         - USER_SERVICE_GRPC_URI=user-service:50051
+         - USER_SERVICE_GRPC_URI=user-service-envoy:50050
       networks:
          - ecommerce-network
       deploy:
@@ -145,8 +122,6 @@ services:
       networks:
          - ecommerce-network
       depends_on:
-         rabbitmq:
-            condition: service_healthy
          mongo-products:
             condition: service_started
          redis-product:
@@ -163,9 +138,9 @@ services:
    product-catalog-envoy:
       image: envoyproxy/envoy:v1.31-latest
       container_name: product-catalog-envoy
-      ports:
-         - "5001:8080"
-         - "9902:9901"
+      # ports:
+      # - "5001:8080"
+      # - "9902:9901"
       volumes:
          - ./envoy/product-catalog-envoy.yml:/etc/envoy/envoy.yml
       networks:
@@ -186,9 +161,9 @@ services:
    product-inventory-envoy:
       image: envoyproxy/envoy:v1.31-latest
       container_name: product-inventory-envoy
-      ports:
-         - "5001:8080"
-         - "9902:9901"
+      # ports:
+      # - "5001:8080"
+      # - "9902:9901"
       volumes:
          - ./envoy/product-inventory-envoy.yml:/etc/envoy/envoy.yml
       networks:
@@ -400,6 +375,11 @@ services:
          timeout: 5s
          retries: 10
          start_period: 40s
+      deploy:
+         resources:
+            limits:
+               cpus: "1.0"
+               memory: 512mb
 
    notification-service-envoy:
       image: envoyproxy/envoy:v1.31-latest
