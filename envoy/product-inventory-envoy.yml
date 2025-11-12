@@ -56,7 +56,7 @@ static_resources:
                         address:
                            socket_address:
                               address: product-inventory
-                              port_value: 5001
+                              port_value: 5007
 
       - name: jaeger
         type: STRICT_DNS

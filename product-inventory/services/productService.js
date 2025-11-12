@@ -2,6 +2,37 @@ const productRepository = require("../repositories/productRepository");
 
 class ProductService {
    /**
+    * Create a new product
+    * @param {Object} productData - Product data (id, price, stock)
+    * @returns {Promise<Object>} Created product
+    */
+   async createProduct(productData) {
+      const { id, price, stock } = productData;
+
+      // Validation
+      if (!id) {
+         throw new Error("Product ID is required");
+      }
+
+      if (!price || price <= 0) {
+         throw new Error("Price must be greater than 0");
+      }
+
+      if (stock === undefined || stock < 0) {
+         throw new Error("Stock must be 0 or greater");
+      }
+
+      // Create product
+      const product = await productRepository.create({
+         id,
+         price,
+         stock,
+      });
+
+      return product;
+   }
+
+   /**
     * Get all products
     * @param {Object} filters - Optional filters
     * @returns {Promise<Array>} List of products

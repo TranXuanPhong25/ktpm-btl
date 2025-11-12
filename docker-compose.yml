@@ -101,6 +101,8 @@ services:
       build: ./product-inventory
       environment:
          - POSTGRES_URI=postgres://postgres:postgres@products-inventory-pg:5432/postgres
+         - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
+
       networks:
          - ecommerce-network
       depends_on:
@@ -116,9 +118,7 @@ services:
       build: ./product-catalog
       environment:
          - MONGO_URI=mongodb://mongo-products:27017/ecommerce-products
-         - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672
          - REDIS_DATABASE_URI=redis://redis-product:6379
-         - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
       networks:
          - ecommerce-network
       depends_on:
@@ -261,7 +261,7 @@ services:
       # - 5003:5003
       environment:
          - MONGO_URI=mongodb://mongo-orders:27017/ecommerce-orders
-         - PRODUCT_SERVICE_URI=http://product-catalog-envoy:8080
+         - PRODUCT_INVENTORY_SERVICE_URI=http://product-inventory-envoy:8080
          - SHOPPING_CART_SERVICE_URI=http://cart-service-envoy:8080
          - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
          - PORT=5003
@@ -307,6 +307,8 @@ services:
       build: ./payment-service
       environment:
          - MONGO_URI=mongodb://mongo-payments:27017/ecommerce-payments
+         - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
+
          - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
       networks:
          - ecommerce-network

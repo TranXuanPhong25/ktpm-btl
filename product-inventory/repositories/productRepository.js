@@ -9,6 +9,15 @@ if (!sequelize) {
 }
 
 class ProductRepository {
+   async create(productData) {
+      try {
+         console.log("Creating product:", typeof productData.id);
+         return await Product.create(productData);
+      } catch (err) {
+         throw new Error(`Failed to create product: ${err.message}`);
+      }
+   }
+
    async findAll() {
       try {
          return await Product.findAll();

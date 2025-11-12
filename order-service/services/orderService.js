@@ -2,8 +2,8 @@ const orderRepository = require("../repositories/orderRepository");
 const axios = require("axios");
 const orderSaga = require("../saga/orderSaga");
 
-const PRODUCT_SERVICE_URI =
-   process.env.PRODUCT_SERVICE_URI || "http://localhost:5001";
+const PRODUCT_INVENTORY_SERVICE_URI =
+   process.env.PRODUCT_INVENTORY_SERVICE_URI || "http://localhost:5001";
 
 class OrderService {
    /**
@@ -25,7 +25,7 @@ class OrderService {
       // Bulk get products from product service to validate and calculate total
       const productIds = items.map((item) => item.productId).join(",");
       const response = await axios.get(
-         `${PRODUCT_SERVICE_URI}/api/products/bulk/get?ids=${productIds}`
+         `${PRODUCT_INVENTORY_SERVICE_URI}/api/product-inventory/bulk/get?ids=${productIds}`
       );
       const products = response.data;
 
@@ -33,7 +33,7 @@ class OrderService {
          throw new Error("Some products not found");
       }
 
-      const productMap = Object.fromEntries(products.map((p) => [p._id, p]));
+      const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
 
       let totalAmount = 0;
       for (const item of items) {
