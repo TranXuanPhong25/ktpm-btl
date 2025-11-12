@@ -1,3 +1,4 @@
+const paymentEventHandler = require("../events/paymentEventHandler");
 const paymentRepository = require("../repositories/paymentRepository");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
@@ -296,7 +297,7 @@ class PaymentService {
       try {
          // Simulate payment processing
          // In production, this would call actual payment gateway
-         const simulateSuccess = Math.random() > 0.1; // 90% success rate
+         const simulateSuccess = Math.random() > 0.8; // 90% success rate
 
          if (!simulateSuccess) {
             throw new Error("Payment gateway declined the transaction");
@@ -313,10 +314,16 @@ class PaymentService {
                processedAt: new Date().toISOString(),
             },
          });
-
+         await paymentEventHandler.publishPaymentSucceeded(
+            orderId,
+            userId,
+            amount,
+            payment
+         );
          return payment;
       } catch (err) {
          // Log payment failure
+
          await paymentRepository.create({
             orderId,
             amount,
@@ -328,6 +335,12 @@ class PaymentService {
                failedAt: new Date().toISOString(),
             },
          });
+         await paymentEventHandler.publishPaymentFailed(
+            orderId,
+            userId,
+            err.message,
+            []
+         );
 
          throw new Error(`Payment processing failed: ${err.message}`);
       }

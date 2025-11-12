@@ -4,6 +4,7 @@ const orderRepository = require("../repositories/orderRepository");
 // Event types
 const EVENTS = {
    ORDER_CREATED: "order.created",
+   ORDER_FAILED: "order.failed",
    INVENTORY_RESERVED: "inventory.reserved",
    INVENTORY_FAILED: "inventory.failed",
    PAYMENT_SUCCEEDED: "payment.succeeded",
@@ -80,6 +81,24 @@ class OrderSaga {
       console.log(`📤 Publishing OrderCreated event for order: ${order._id}`);
 
       await this.rabbitMQ.publish(EXCHANGES.ORDER, EVENTS.ORDER_CREATED, event);
+   }
+   async publishOrderFailed(order) {
+      if (!this.isInitialized) {
+         throw new Error("Order Saga not initialized");
+      }
+
+      const event = {
+         eventType: EVENTS.ORDER_FAILED,
+         orderId: order._id.toString(),
+         userId: order.userId,
+         items: order.items,
+         totalAmount: order.totalAmount,
+         timestamp: new Date().toISOString(),
+      };
+
+      console.log(`📤 Publishing StockReversal event for order: ${order._id}`);
+
+      await this.rabbitMQ.publish(EXCHANGES.ORDER, EVENTS.ORDER_FAILED, event);
    }
 
    /**
@@ -165,7 +184,8 @@ class OrderSaga {
 
       // Compensating transaction: Mark order as Failed
       await orderRepository.updateStatus(orderId, "Failed");
-
+      const order = await orderRepository.findById(orderId);
+      await this.publishOrderFailed(order);
       console.log(
          `✓ Compensating transaction: Order ${orderId} marked as Failed due to payment failure`
       );

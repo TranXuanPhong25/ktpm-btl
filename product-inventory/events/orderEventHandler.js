@@ -6,14 +6,13 @@ const EVENTS = {
    ORDER_CREATED: "order.created",
    INVENTORY_RESERVED: "inventory.reserved",
    INVENTORY_FAILED: "inventory.failed",
-   PAYMENT_FAILED: "payment.failed",
+   ORDER_FAILED: "order.failed",
 };
 
 // Exchange and queue names
 const EXCHANGES = {
    ORDER: "order_exchange",
    INVENTORY: "inventory_exchange",
-   PAYMENT: "payment_exchange",
 };
 
 const QUEUES = {
@@ -34,7 +33,6 @@ class OrderEventHandler {
          // Setup exchanges
          await this.rabbitMQ.assertExchange(EXCHANGES.ORDER);
          await this.rabbitMQ.assertExchange(EXCHANGES.INVENTORY);
-         await this.rabbitMQ.assertExchange(EXCHANGES.PAYMENT);
 
          // Setup queue for listening to order events
          await this.rabbitMQ.assertQueue(QUEUES.INVENTORY);
@@ -48,8 +46,8 @@ class OrderEventHandler {
          await this.rabbitMQ.assertQueue(QUEUES.INVENTORY_COMPENSATION);
          await this.rabbitMQ.bindQueue(
             QUEUES.INVENTORY_COMPENSATION,
-            EXCHANGES.PAYMENT,
-            EVENTS.PAYMENT_FAILED
+            EXCHANGES.ORDER,
+            EVENTS.ORDER_FAILED
          );
 
          // Start listening to events
@@ -92,8 +90,8 @@ class OrderEventHandler {
             );
 
             try {
-               if (event.eventType === EVENTS.PAYMENT_FAILED) {
-                  await this.handlePaymentFailed(event);
+               if (event.eventType === EVENTS.ORDER_FAILED) {
+                  await this.handleOrderFailed(event);
                }
             } catch (error) {
                console.error(
@@ -134,6 +132,32 @@ class OrderEventHandler {
          console.log(
             `✗ Inventory reservation failed for order: ${orderId}. Reason: ${error.message}`
          );
+      }
+   }
+   async handleOrderFailed(event) {
+      const { orderId, items, userId } = event;
+
+      console.log(`🔄 Processing inventory reservation for order: ${orderId}`);
+
+      try {
+         // Attempt to deduct stock for all items
+         const updates = items.map((item) => ({
+            id: item.productId,
+            quantity: item.quantity,
+         }));
+         console.log(updates);
+         for (const update of updates) {
+            await productService.addStock(update.id, update.quantity);
+            console.log(
+               `✓ Restored ${update.quantity} units of product ${update.id}`
+            );
+         }
+         console.log(`✓ Inventory restoration completed for order: ${orderId}`);
+      } catch (error) {
+         console.error(
+            `✗ Inventory restoration failed for order: ${orderId}. Reason: ${error.message}`
+         );
+         // Log but don't throw - compensation failure should be monitored but not crash the service
       }
    }
 
@@ -197,6 +221,7 @@ class OrderEventHandler {
 
    /**
     * Handle PaymentFailed event - Compensate by restoring inventory
+    * @deprecated
     */
    async handlePaymentFailed(event) {
       const { orderId } = event;

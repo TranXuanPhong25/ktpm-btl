@@ -3,13 +3,13 @@ const sendEmail = require("../services/emailService");
 
 // Event types
 const EVENTS = {
-   INVENTORY_RESERVED: "inventory.reserved",
-   INVENTORY_FAILED: "inventory.failed",
+   ORDER_SUCCESSFUL: "order.successful",
+   ORDER_FAILED: "order.failed",
 };
 
 // Exchange and queue names
 const EXCHANGES = {
-   INVENTORY: "inventory_exchange",
+   ORDER: "order_exchange",
 };
 
 const QUEUES = {
@@ -27,14 +27,14 @@ class OrderEventHandler {
          await this.rabbitMQ.connect(rabbitMQUri);
 
          // Setup exchange
-         await this.rabbitMQ.assertExchange(EXCHANGES.INVENTORY);
+         await this.rabbitMQ.assertExchange(EXCHANGES.ORDER);
 
          // Setup queue for listening to inventory events
          await this.rabbitMQ.assertQueue(QUEUES.NOTIFICATION);
          await this.rabbitMQ.bindQueue(
             QUEUES.NOTIFICATION,
-            EXCHANGES.INVENTORY,
-            "inventory.*"
+            EXCHANGES.ORDER,
+            "order.*"
          );
 
          // Start listening to inventory events
@@ -58,10 +58,10 @@ class OrderEventHandler {
          console.log(`📥 Received event: ${event.eventType}`);
 
          try {
-            if (event.eventType === EVENTS.INVENTORY_RESERVED) {
-               await this.handleInventoryReserved(event);
-            } else if (event.eventType === EVENTS.INVENTORY_FAILED) {
-               await this.handleInventoryFailed(event);
+            if (event.eventType === EVENTS.ORDER_SUCCESSFUL) {
+               await this.handleOrderSuccessful(event);
+            } else if (event.eventType === EVENTS.ORDER_FAILED) {
+               await this.handleOrderFailed(event);
             }
          } catch (error) {
             console.error("Error handling event:", error.message);
@@ -70,10 +70,7 @@ class OrderEventHandler {
       });
    }
 
-   /**
-    * Handle successful inventory reservation - Send success notification
-    */
-   async handleInventoryReserved(event) {
+   async handleOrderSuccessful(event) {
       const { orderId, userId, items } = event;
 
       console.log(`✓ Sending order success notification for order: ${orderId}`);
@@ -81,7 +78,7 @@ class OrderEventHandler {
       try {
          // In a real scenario, you would fetch user email from user service
          // For now, we'll use a placeholder
-         const userEmail = `user_${userId}@example.com`;
+         const userEmail = `vipboyhoid69@gmail.com`;
 
          const itemList = items
             .map(
@@ -120,10 +117,7 @@ E-Commerce Team
       }
    }
 
-   /**
-    * Handle inventory reservation failure - Send failure notification
-    */
-   async handleInventoryFailed(event) {
+   async handleOrderFailed(event) {
       const { orderId, userId, reason } = event;
 
       console.log(`✗ Sending order failure notification for order: ${orderId}`);

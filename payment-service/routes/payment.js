@@ -53,6 +53,24 @@ router.get("/order/:orderId", async (req, res) => {
    }
 });
 
+router.post("/order/:orderId", async (req, res) => {
+   const { orderId } = req.params;
+   const { amount, userId } = req.body;
+   try {
+      const payments = await paymentService.processPaymentForOrder(
+         orderId,
+         amount,
+         userId
+      );
+      res.json(payments);
+   } catch (err) {
+      if (err.message.includes("required")) {
+         return res.status(400).json({ msg: err.message });
+      }
+      res.status(500).json({ msg: err.message });
+   }
+});
+
 // Get all payments with optional filters
 router.get("/", async (req, res) => {
    try {
