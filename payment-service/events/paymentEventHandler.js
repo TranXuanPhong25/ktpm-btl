@@ -1,21 +1,14 @@
 const RabbitMQConnection = require("../messaging/rabbitmq");
-// const PaymentService = require("../services/paymentService");
 
 // Event types
 const EVENTS = {
-   INVENTORY_RESERVED: "inventory.reserved",
    PAYMENT_SUCCEEDED: "payment.succeeded",
    PAYMENT_FAILED: "payment.failed",
 };
 
 // Exchange and queue names
 const EXCHANGES = {
-   INVENTORY: "inventory_exchange",
    PAYMENT: "payment_exchange",
-};
-
-const QUEUES = {
-   PAYMENT_PROCESSING: "payment_processing_queue",
 };
 
 class PaymentEventHandler {
@@ -29,19 +22,9 @@ class PaymentEventHandler {
          await this.rabbitMQ.connect(rabbitMQUri);
 
          // Setup exchanges
-         await this.rabbitMQ.assertExchange(EXCHANGES.INVENTORY);
          await this.rabbitMQ.assertExchange(EXCHANGES.PAYMENT);
 
-         // Setup queue for listening to inventory events
-         await this.rabbitMQ.assertQueue(QUEUES.PAYMENT_PROCESSING);
-         await this.rabbitMQ.bindQueue(
-            QUEUES.PAYMENT_PROCESSING,
-            EXCHANGES.INVENTORY,
-            EVENTS.INVENTORY_RESERVED
-         );
-
          // Start listening
-         await this.startListening();
 
          this.isInitialized = true;
          console.log("✓ Payment Event Handler initialized successfully");
@@ -51,57 +34,6 @@ class PaymentEventHandler {
             error.message
          );
          throw error;
-      }
-   }
-
-   async startListening() {
-      await this.rabbitMQ.consume(QUEUES.PAYMENT_PROCESSING, async (event) => {
-         console.log(`📥 Payment service received event: ${event.eventType}`);
-
-         try {
-            if (event.eventType === EVENTS.INVENTORY_RESERVED) {
-               await this.handleInventoryReserved(event);
-            }
-         } catch (error) {
-            console.error("Error handling event:", error.message);
-            throw error;
-         }
-      });
-   }
-
-   /**
-    * Handle inventory reserved event - Process payment
-    */
-   async handleInventoryReserved(event) {
-      const { orderId, userId, totalAmount, items } = event;
-
-      console.log(`💳 Processing payment for order: ${orderId}`);
-
-      try {
-         // Simulate payment processing
-         // In production, this would integrate with real payment gateway
-         // const paymentResult = await PaymentService.processPaymentForOrder(
-         //    orderId,
-         //    totalAmount,
-         //    userId
-         // );
-
-         // Payment succeeded - publish event
-         // await this.publishPaymentSucceeded(
-         //    orderId,
-         //    userId,
-         //    totalAmount,
-         //    paymentResult
-         // );
-
-         console.log(`....... ${orderId}`);
-      } catch (error) {
-         // Payment failed - publish event with items for compensation
-         await this.publishPaymentFailed(orderId, userId, error.message, items);
-
-         console.log(
-            `✗ Payment failed for order: ${orderId}. Reason: ${error.message}`
-         );
       }
    }
 
