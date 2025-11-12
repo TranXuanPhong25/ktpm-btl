@@ -1,5 +1,5 @@
 const RabbitMQConnection = require("../messaging/rabbitmq");
-const paymentService = require("../services/paymentService");
+// const PaymentService = require("../services/paymentService");
 
 // Event types
 const EVENTS = {
@@ -80,21 +80,21 @@ class PaymentEventHandler {
       try {
          // Simulate payment processing
          // In production, this would integrate with real payment gateway
-         const paymentResult = await paymentService.processPaymentForOrder(
-            orderId,
-            totalAmount,
-            userId
-         );
+         // const paymentResult = await PaymentService.processPaymentForOrder(
+         //    orderId,
+         //    totalAmount,
+         //    userId
+         // );
 
          // Payment succeeded - publish event
-         await this.publishPaymentSucceeded(
-            orderId,
-            userId,
-            totalAmount,
-            paymentResult
-         );
+         // await this.publishPaymentSucceeded(
+         //    orderId,
+         //    userId,
+         //    totalAmount,
+         //    paymentResult
+         // );
 
-         console.log(`✓ Payment succeeded for order: ${orderId}`);
+         console.log(`....... ${orderId}`);
       } catch (error) {
          // Payment failed - publish event with items for compensation
          await this.publishPaymentFailed(orderId, userId, error.message, items);
