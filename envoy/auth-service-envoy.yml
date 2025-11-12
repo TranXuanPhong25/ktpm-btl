@@ -32,7 +32,7 @@ static_resources:
                                   route:
                                      cluster: auth_service
                                      retry_policy:
-                                        retry_on: "5xx,connect-failure,refused-stream"
+                                        retry_on: "connect-failure,refused-stream"
                                         num_retries: 3
                                         per_try_timeout: 2s
                                   decorator:
