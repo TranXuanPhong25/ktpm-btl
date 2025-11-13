@@ -78,7 +78,7 @@ class OrderEventHandler {
       try {
          // In a real scenario, you would fetch user email from user service
          // For now, we'll use a placeholder
-         const userEmail = `vipboyhoid69@gmail.com`;
+         const userEmail = "vipboyhoid69@gmail.com";
 
          const itemList = items
             .map(

@@ -82,6 +82,7 @@ class OrderSaga {
 
       await this.rabbitMQ.publish(EXCHANGES.ORDER, EVENTS.ORDER_CREATED, event);
    }
+
    async publishOrderFailed(order) {
       if (!this.isInitialized) {
          throw new Error("Order Saga not initialized");
