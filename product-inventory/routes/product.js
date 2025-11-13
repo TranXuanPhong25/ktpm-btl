@@ -1,7 +1,6 @@
 const express = require("express");
 const os = require("os");
 const productService = require("../services/productService");
-
 const router = express.Router();
 
 // Create Product

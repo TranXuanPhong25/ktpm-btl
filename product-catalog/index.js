@@ -11,15 +11,24 @@ dotenv.config();
 app.use(express.json());
 
 // Routes
-app.use("/api/products", productRoutes);
+app.use("/api/product-catalog", productRoutes);
 
 // Database connection and server start
 const mongoURI =
    process.env.MONGO_URI || "mongodb://localhost:27017/ecommerce-products";
 
+// Helper function to wait
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 database
    .connect(mongoURI)
-   .then(() => {
+   .then(async () => {
+      // Wait for RabbitMQ to be fully ready
+      console.log("Waiting for RabbitMQ to be ready...");
+      await wait(5000);
+
+      // Initialize Order Event Handler
+
       app.listen(PORT, () => {
          console.log(`Product Catalog is running on port ${PORT}`);
       });

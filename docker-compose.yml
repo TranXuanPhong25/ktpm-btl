@@ -1,27 +1,4 @@
 services:
-   # RabbitMQ Message Broker
-   rabbitmq:
-      image: rabbitmq:3-management
-      container_name: rabbitmq
-      ports:
-         - "5672:5672" # AMQP port
-         - "15672:15672" # Management UI
-      environment:
-         - RABBITMQ_DEFAULT_USER=guest
-         - RABBITMQ_DEFAULT_PASS=guest
-      networks:
-         - ecommerce-network
-      healthcheck:
-         test: ["CMD", "rabbitmq-diagnostics", "ping"]
-         interval: 10s
-         timeout: 5s
-         retries: 5
-      deploy:
-         resources:
-            limits:
-               cpus: "1.0"
-               memory: 512mb
-
    # Jaeger for distributed tracing
    jaeger:
       image: jaegertracing/all-in-one:latest
@@ -52,7 +29,7 @@ services:
       build: ./auth-service
       environment:
          - JWT_SECRET=${JWT_SECRET}
-         - USER_SERVICE_GRPC_URI=user-service:50051
+         - USER_SERVICE_GRPC_URI=user-service-envoy:50050
       networks:
          - ecommerce-network
       deploy:
@@ -124,6 +101,8 @@ services:
       build: ./product-inventory
       environment:
          - POSTGRES_URI=postgres://postgres:postgres@products-inventory-pg:5432/postgres
+         - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
+
       networks:
          - ecommerce-network
       depends_on:
@@ -139,18 +118,16 @@ services:
       build: ./product-catalog
       environment:
          - MONGO_URI=mongodb://mongo-products:27017/ecommerce-products
-         - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672
          - REDIS_DATABASE_URI=redis://redis-product:6379
-         # - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
       networks:
          - ecommerce-network
       depends_on:
-         rabbitmq:
-            condition: service_healthy
          mongo-products:
             condition: service_started
          redis-product:
             condition: service_started
+         rabbitmq:
+            condition: service_healthy
       deploy:
          replicas: 4
          resources:
@@ -161,9 +138,9 @@ services:
    product-catalog-envoy:
       image: envoyproxy/envoy:v1.31-latest
       container_name: product-catalog-envoy
-      ports:
-         - "5001:8080"
-         - "9902:9901"
+      # ports:
+      # - "5001:8080"
+      # - "9902:9901"
       volumes:
          - ./envoy/product-catalog-envoy.yml:/etc/envoy/envoy.yml
       networks:
@@ -184,9 +161,9 @@ services:
    product-inventory-envoy:
       image: envoyproxy/envoy:v1.31-latest
       container_name: product-inventory-envoy
-      ports:
-         - "5001:8080"
-         - "9902:9901"
+      # ports:
+      # - "5001:8080"
+      # - "9902:9901"
       volumes:
          - ./envoy/product-inventory-envoy.yml:/etc/envoy/envoy.yml
       networks:
@@ -239,8 +216,8 @@ services:
       environment:
          - MONGO_URI=mongodb://mongo-cart:27017/ecommerce-cart
          - PRODUCT_SERVICE_URI=http://product-catalog-envoy:8080
+         - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
          - PORT=5002
-         - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672
       networks:
          - ecommerce-network
       depends_on:
@@ -280,20 +257,23 @@ services:
 
    order-service:
       build: ./order-service
+      # ports:
+      # - 5003:5003
       environment:
          - MONGO_URI=mongodb://mongo-orders:27017/ecommerce-orders
-         - PRODUCT_SERVICE_URI=http://product-catalog-envoy:8080
+         - PRODUCT_INVENTORY_SERVICE_URI=http://product-inventory-envoy:8080
          - SHOPPING_CART_SERVICE_URI=http://cart-service-envoy:8080
-         - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672
+         - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
+         - PORT=5003
       networks:
          - ecommerce-network
       depends_on:
-         rabbitmq:
-            condition: service_healthy
          mongo-orders:
             condition: service_started
+         rabbitmq:
+            condition: service_healthy
       deploy:
-         replicas: 3
+         replicas: 1
          resources:
             limits:
                cpus: "1.0"
@@ -327,6 +307,8 @@ services:
       build: ./payment-service
       environment:
          - MONGO_URI=mongodb://mongo-payments:27017/ecommerce-payments
+         - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
+
          - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
       networks:
          - ecommerce-network
@@ -368,11 +350,38 @@ services:
          - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
          - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
          - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+         - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
       networks:
          - ecommerce-network
       depends_on:
          rabbitmq:
             condition: service_healthy
+
+   # RabbitMQ Message Broker
+   rabbitmq:
+      image: rabbitmq:3-management-alpine
+      container_name: rabbitmq
+      ports:
+         - "5672:5672" # AMQP port
+         - "15672:15672" # Management UI
+      environment:
+         - RABBITMQ_DEFAULT_USER=admin
+         - RABBITMQ_DEFAULT_PASS=admin123
+      volumes:
+         - rabbitmq-data:/var/lib/rabbitmq
+      networks:
+         - ecommerce-network
+      healthcheck:
+         test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+         interval: 10s
+         timeout: 5s
+         retries: 10
+         start_period: 40s
+      deploy:
+         resources:
+            limits:
+               cpus: "1.0"
+               memory: 512mb
 
    notification-service-envoy:
       image: envoyproxy/envoy:v1.31-latest
@@ -397,7 +406,6 @@ services:
             "--log-level",
             "info",
          ]
-
    # Separate MongoDB instances for each service
    mongo-users:
       image: mongo:latest
@@ -563,6 +571,7 @@ volumes:
    mongo-payments-data: {}
    influxdb-data: {}
    grafana-data: {}
+   rabbitmq-data: {}
    redis_data: {}
    product_inventory_pg: {}
 networks:
