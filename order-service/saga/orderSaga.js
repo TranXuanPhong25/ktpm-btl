@@ -5,6 +5,7 @@ const orderRepository = require("../repositories/orderRepository");
 const EVENTS = {
    ORDER_CREATED: "order.created",
    ORDER_FAILED: "order.failed",
+   ORDER_PLACED: "order.placed",
    INVENTORY_RESERVED: "inventory.reserved",
    INVENTORY_FAILED: "inventory.failed",
    PAYMENT_SUCCEEDED: "payment.succeeded",
@@ -78,11 +79,25 @@ class OrderSaga {
          timestamp: new Date().toISOString(),
       };
 
-      console.log(`📤 Publishing OrderCreated event for order: ${order._id}`);
-
       await this.rabbitMQ.publish(EXCHANGES.ORDER, EVENTS.ORDER_CREATED, event);
    }
 
+   async publishOrderPlaced(order) {
+      if (!this.isInitialized) {
+         throw new Error("Order Saga not initialized");
+      }
+
+      const event = {
+         eventType: EVENTS.ORDER_PLACED,
+         orderId: order._id.toString(),
+         userId: order.userId,
+         items: order.items,
+         totalAmount: order.totalAmount,
+         timestamp: new Date().toISOString(),
+      };
+
+      await this.rabbitMQ.publish(EXCHANGES.ORDER, EVENTS.ORDER_PLACED, event);
+   }
    async publishOrderFailed(order) {
       if (!this.isInitialized) {
          throw new Error("Order Saga not initialized");
@@ -94,10 +109,9 @@ class OrderSaga {
          userId: order.userId,
          items: order.items,
          totalAmount: order.totalAmount,
+         reason: order.reason,
          timestamp: new Date().toISOString(),
       };
-
-      console.log(`📤 Publishing StockReversal event for order: ${order._id}`);
 
       await this.rabbitMQ.publish(EXCHANGES.ORDER, EVENTS.ORDER_FAILED, event);
    }
@@ -107,8 +121,6 @@ class OrderSaga {
     */
    async startListening() {
       await this.rabbitMQ.consume(QUEUES.ORDER_SAGA, async (event) => {
-         console.log(`📥 Received event: ${event.eventType}`);
-
          try {
             if (event.eventType === EVENTS.INVENTORY_RESERVED) {
                await this.handleInventoryReserved(event);
@@ -132,12 +144,8 @@ class OrderSaga {
    async handleInventoryReserved(event) {
       const { orderId } = event;
 
-      console.log(`✓ Inventory reserved successfully for order: ${orderId}`);
-
       // Update order status to 'Processing'
       await orderRepository.updateStatus(orderId, "Processing");
-
-      console.log(`✓ Order ${orderId} status updated to Processing`);
    }
 
    /**
@@ -146,16 +154,8 @@ class OrderSaga {
    async handleInventoryFailed(event) {
       const { orderId, reason } = event;
 
-      console.log(
-         `✗ Inventory reservation failed for order: ${orderId}. Reason: ${reason}`
-      );
-
       // Compensating transaction: Mark order as Failed
       await orderRepository.updateStatus(orderId, "Failed");
-
-      console.log(
-         `✓ Compensating transaction: Order ${orderId} marked as Failed`
-      );
    }
 
    /**
@@ -164,14 +164,8 @@ class OrderSaga {
    async handlePaymentSucceeded(event) {
       const { orderId, paymentId } = event;
 
-      console.log(
-         `✓ Payment succeeded for order: ${orderId}, Payment ID: ${paymentId}`
-      );
-
       // Update order status to 'Completed'
       await orderRepository.updateStatus(orderId, "Completed");
-
-      console.log(`✓ Order ${orderId} status updated to Completed`);
    }
 
    /**
@@ -181,15 +175,10 @@ class OrderSaga {
    async handlePaymentFailed(event) {
       const { orderId, reason } = event;
 
-      console.log(`✗ Payment failed for order: ${orderId}. Reason: ${reason}`);
-
       // Compensating transaction: Mark order as Failed
       await orderRepository.updateStatus(orderId, "Failed");
       const order = await orderRepository.findById(orderId);
       await this.publishOrderFailed(order);
-      console.log(
-         `✓ Compensating transaction: Order ${orderId} marked as Failed due to payment failure`
-      );
    }
 
    async close() {

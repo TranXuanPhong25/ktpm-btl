@@ -3,7 +3,7 @@ const sendEmail = require("../services/emailService");
 
 // Event types
 const EVENTS = {
-   ORDER_SUCCESSFUL: "order.successful",
+   ORDER_SUCCESSFUL: "order.placed",
    ORDER_FAILED: "order.failed",
 };
 
@@ -70,7 +70,7 @@ class OrderEventHandler {
       });
    }
 
-   async handleOrderSuccessful(event) {
+   async handleOrderPlaced(event) {
       const { orderId, userId, items } = event;
 
       console.log(`✓ Sending order success notification for order: ${orderId}`);
