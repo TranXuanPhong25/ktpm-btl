@@ -12,7 +12,8 @@ const EXCHANGES = {
 };
 
 const QUEUES = {
-   CART_CLEAR: "cart_clear_queue",
+   // Dedicated queue for receiving Order Created events from Order Service
+   ORDER_TO_CART: "order.to.cart.queue",
 };
 
 class CartEventHandler {
@@ -28,10 +29,10 @@ class CartEventHandler {
          // Setup exchange for order events
          await this.rabbitMQ.assertExchange(EXCHANGES.ORDER);
 
-         // Setup queue for cart service to listen to order events
-         await this.rabbitMQ.assertQueue(QUEUES.CART_CLEAR);
+         // Setup dedicated queue for receiving Order Created events from Order Service
+         await this.rabbitMQ.assertQueue(QUEUES.ORDER_TO_CART);
          await this.rabbitMQ.bindQueue(
-            QUEUES.CART_CLEAR,
+            QUEUES.ORDER_TO_CART,
             EXCHANGES.ORDER,
             EVENTS.ORDER_CREATED
          );
@@ -54,8 +55,10 @@ class CartEventHandler {
     * Start listening to order events
     */
    async startListening() {
-      await this.rabbitMQ.consume(QUEUES.CART_CLEAR, async (event) => {
-         console.log(`📥 Cart service received event: ${event.eventType}`);
+      await this.rabbitMQ.consume(QUEUES.ORDER_TO_CART, async (event) => {
+         console.log(
+            `📥 [Cart] Received from Order Service: ${event.eventType}`
+         );
 
          try {
             if (event.eventType === EVENTS.ORDER_CREATED) {

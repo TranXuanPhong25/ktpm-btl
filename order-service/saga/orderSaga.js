@@ -20,7 +20,10 @@ const EXCHANGES = {
 };
 
 const QUEUES = {
-   ORDER_SAGA: "order_saga_queue",
+   // Queue for Order Saga to receive responses from Inventory Service
+   INVENTORY_TO_ORDER: "inventory.to.order.queue",
+   // Queue for Order Saga to receive responses from Payment Service
+   PAYMENT_TO_ORDER: "payment.to.order.queue",
 };
 
 class OrderSaga {
@@ -38,24 +41,36 @@ class OrderSaga {
          await this.rabbitMQ.assertExchange(EXCHANGES.INVENTORY);
          await this.rabbitMQ.assertExchange(EXCHANGES.PAYMENT);
 
-         // Setup queue for saga to listen to inventory and payment events
-         await this.rabbitMQ.assertQueue(QUEUES.ORDER_SAGA);
+         // Setup dedicated queue for Inventory Service responses
+         await this.rabbitMQ.assertQueue(QUEUES.INVENTORY_TO_ORDER);
          await this.rabbitMQ.bindQueue(
-            QUEUES.ORDER_SAGA,
+            QUEUES.INVENTORY_TO_ORDER,
             EXCHANGES.INVENTORY,
-            "inventory.*"
+            EVENTS.INVENTORY_RESERVED
          );
          await this.rabbitMQ.bindQueue(
-            QUEUES.ORDER_SAGA,
+            QUEUES.INVENTORY_TO_ORDER,
+            EXCHANGES.INVENTORY,
+            EVENTS.INVENTORY_FAILED
+         );
+
+         // Setup dedicated queue for Payment Service responses
+         await this.rabbitMQ.assertQueue(QUEUES.PAYMENT_TO_ORDER);
+         await this.rabbitMQ.bindQueue(
+            QUEUES.PAYMENT_TO_ORDER,
             EXCHANGES.PAYMENT,
-            "payment.*"
+            EVENTS.PAYMENT_SUCCEEDED
+         );
+         await this.rabbitMQ.bindQueue(
+            QUEUES.PAYMENT_TO_ORDER,
+            EXCHANGES.PAYMENT,
+            EVENTS.PAYMENT_FAILED
          );
 
          // Start listening to events
          await this.startListening();
 
          this.isInitialized = true;
-         console.log("✓ Order Saga initialized successfully");
       } catch (error) {
          console.error("Failed to initialize Order Saga:", error.message);
          throw error;
@@ -120,19 +135,36 @@ class OrderSaga {
     * Start listening to inventory and payment events
     */
    async startListening() {
-      await this.rabbitMQ.consume(QUEUES.ORDER_SAGA, async (event) => {
+      // Listen to Inventory Service responses
+      await this.rabbitMQ.consume(QUEUES.INVENTORY_TO_ORDER, async (event) => {
+         console.log(
+            `📥 [Order Saga] Received from Inventory: ${event.eventType}`
+         );
          try {
             if (event.eventType === EVENTS.INVENTORY_RESERVED) {
                await this.handleInventoryReserved(event);
             } else if (event.eventType === EVENTS.INVENTORY_FAILED) {
                await this.handleInventoryFailed(event);
-            } else if (event.eventType === EVENTS.PAYMENT_SUCCEEDED) {
+            }
+         } catch (error) {
+            console.error("Error handling inventory event:", error.message);
+            throw error;
+         }
+      });
+
+      // Listen to Payment Service responses
+      await this.rabbitMQ.consume(QUEUES.PAYMENT_TO_ORDER, async (event) => {
+         console.log(
+            `📥 [Order Saga] Received from Payment: ${event.eventType}`
+         );
+         try {
+            if (event.eventType === EVENTS.PAYMENT_SUCCEEDED) {
                await this.handlePaymentSucceeded(event);
             } else if (event.eventType === EVENTS.PAYMENT_FAILED) {
                await this.handlePaymentFailed(event);
             }
          } catch (error) {
-            console.error("Error handling event:", error.message);
+            console.error("Error handling payment event:", error.message);
             throw error;
          }
       });

@@ -16,8 +16,10 @@ const EXCHANGES = {
 };
 
 const QUEUES = {
-   INVENTORY: "inventory_queue",
-   INVENTORY_COMPENSATION: "inventory_compensation_queue",
+   // Dedicated queue for receiving Order Created events from Order Service
+   ORDER_TO_INVENTORY: "order.to.inventory.queue",
+   // Dedicated queue for receiving Order Failed events for compensation
+   ORDER_TO_INVENTORY_COMPENSATION: "order.to.inventory.compensation.queue",
 };
 
 class OrderEventHandler {
@@ -34,18 +36,20 @@ class OrderEventHandler {
          await this.rabbitMQ.assertExchange(EXCHANGES.ORDER);
          await this.rabbitMQ.assertExchange(EXCHANGES.INVENTORY);
 
-         // Setup queue for listening to order events
-         await this.rabbitMQ.assertQueue(QUEUES.INVENTORY);
+         // Setup dedicated queue for receiving Order Created events from Order Service
+         await this.rabbitMQ.assertQueue(QUEUES.ORDER_TO_INVENTORY);
          await this.rabbitMQ.bindQueue(
-            QUEUES.INVENTORY,
+            QUEUES.ORDER_TO_INVENTORY,
             EXCHANGES.ORDER,
             EVENTS.ORDER_CREATED
          );
 
-         // Setup queue for listening to payment failed events (for compensation)
-         await this.rabbitMQ.assertQueue(QUEUES.INVENTORY_COMPENSATION);
+         // Setup dedicated queue for receiving Order Failed events (for compensation)
+         await this.rabbitMQ.assertQueue(
+            QUEUES.ORDER_TO_INVENTORY_COMPENSATION
+         );
          await this.rabbitMQ.bindQueue(
-            QUEUES.INVENTORY_COMPENSATION,
+            QUEUES.ORDER_TO_INVENTORY_COMPENSATION,
             EXCHANGES.ORDER,
             EVENTS.ORDER_FAILED
          );
@@ -67,26 +71,28 @@ class OrderEventHandler {
    }
 
    async startListening() {
-      // Listen to order created events
-      await this.rabbitMQ.consume(QUEUES.INVENTORY, async (event) => {
-         console.log(`📥 Inventory queue received event: ${event.eventType}`);
+      // Listen to Order Created events from Order Service
+      await this.rabbitMQ.consume(QUEUES.ORDER_TO_INVENTORY, async (event) => {
+         console.log(
+            `📥 [Inventory] Received from Order Service: ${event.eventType}`
+         );
 
          try {
             if (event.eventType === EVENTS.ORDER_CREATED) {
                await this.handleOrderCreated(event);
             }
          } catch (error) {
-            console.error("Error handling event:", error.message);
+            console.error("Error handling order created event:", error.message);
             throw error;
          }
       });
 
-      // Listen to payment failed events for compensation
+      // Listen to Order Failed events for compensation
       await this.rabbitMQ.consume(
-         QUEUES.INVENTORY_COMPENSATION,
+         QUEUES.ORDER_TO_INVENTORY_COMPENSATION,
          async (event) => {
             console.log(
-               `📥 Compensation queue received event: ${event.eventType}`
+               `📥 [Inventory] Received compensation request: ${event.eventType}`
             );
 
             try {
@@ -98,7 +104,6 @@ class OrderEventHandler {
                   "Error handling compensation event:",
                   error.message
                );
-               throw error;
             }
          }
       );

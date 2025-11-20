@@ -13,7 +13,8 @@ const EXCHANGES = {
 };
 
 const QUEUES = {
-   NOTIFICATION: "notification_queue",
+   // Dedicated queue for receiving Order events from Order Service
+   ORDER_TO_NOTIFICATION: "order.to.notification.queue",
 };
 
 class OrderEventHandler {
@@ -29,12 +30,17 @@ class OrderEventHandler {
          // Setup exchange
          await this.rabbitMQ.assertExchange(EXCHANGES.ORDER);
 
-         // Setup queue for listening to inventory events
-         await this.rabbitMQ.assertQueue(QUEUES.NOTIFICATION);
+         // Setup dedicated queue for receiving Order events from Order Service
+         await this.rabbitMQ.assertQueue(QUEUES.ORDER_TO_NOTIFICATION);
          await this.rabbitMQ.bindQueue(
-            QUEUES.NOTIFICATION,
+            QUEUES.ORDER_TO_NOTIFICATION,
             EXCHANGES.ORDER,
-            "order.*"
+            EVENTS.ORDER_SUCCESSFUL
+         );
+         await this.rabbitMQ.bindQueue(
+            QUEUES.ORDER_TO_NOTIFICATION,
+            EXCHANGES.ORDER,
+            EVENTS.ORDER_FAILED
          );
 
          // Start listening to inventory events
@@ -54,20 +60,25 @@ class OrderEventHandler {
    }
 
    async startListening() {
-      await this.rabbitMQ.consume(QUEUES.NOTIFICATION, async (event) => {
-         console.log(`📥 Received event: ${event.eventType}`);
+      await this.rabbitMQ.consume(
+         QUEUES.ORDER_TO_NOTIFICATION,
+         async (event) => {
+            console.log(
+               `📥 [Notification] Received from Order Service: ${event.eventType}`
+            );
 
-         try {
-            if (event.eventType === EVENTS.ORDER_SUCCESSFUL) {
-               await this.handleOrderSuccessful(event);
-            } else if (event.eventType === EVENTS.ORDER_FAILED) {
-               await this.handleOrderFailed(event);
+            try {
+               if (event.eventType === EVENTS.ORDER_SUCCESSFUL) {
+                  await this.handleOrderSuccessful(event);
+               } else if (event.eventType === EVENTS.ORDER_FAILED) {
+                  await this.handleOrderFailed(event);
+               }
+            } catch (error) {
+               console.error("Error handling event:", error.message);
+               throw error;
             }
-         } catch (error) {
-            console.error("Error handling event:", error.message);
-            throw error;
          }
-      });
+      );
    }
 
    async handleOrderPlaced(event) {
