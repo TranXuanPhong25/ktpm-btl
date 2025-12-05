@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
 import { apiClient } from "../lib/api";
-import { Product } from "../types";
+import type { Product } from "../types";
 import { Header } from "../components/Header";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ErrorMessage } from "../components/ErrorMessage";
@@ -21,8 +22,10 @@ export default function Products() {
 
    const loadProducts = async () => {
       try {
-         const data = await apiClient.getProducts();
-         setProducts(data);
+         const response: any = await apiClient.getProducts();
+         // Handle paginated response format
+         const data = response.data || response;
+         setProducts(Array.isArray(data) ? data : []);
       } catch (error: any) {
          console.error("Failed to load products:", error);
          setError(error.message || "Failed to load products");
@@ -33,17 +36,17 @@ export default function Products() {
 
    const addToCart = async (productId: string, productName: string) => {
       if (!user) {
-         alert("Please login to add items to cart");
+         toast.error("Please login to add items to cart");
          navigate("/login");
          return;
       }
 
       try {
          await apiClient.addToCart(user._id, { productId, quantity: 1 });
-         alert(`${productName} added to cart!`);
+         toast.success(`${productName} added to cart!`);
       } catch (error: any) {
          console.error("Failed to add to cart:", error);
-         alert(error.message || "Failed to add product to cart");
+         toast.error(error.message || "Failed to add product to cart");
       }
    };
 
@@ -70,15 +73,15 @@ export default function Products() {
    }
 
    return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-white">
          <Header />
-         <div className="max-w-7xl mx-auto px-4 py-8">
-            <div className="mb-8">
-               <h1 className="text-3xl font-bold text-gray-900">
-                  Our Products
+         <div className="max-w-7xl mx-auto px-4 py-12">
+            <div className="mb-12">
+               <h1 className="text-4xl font-black text-black uppercase mb-2 tracking-tight">
+                  Products
                </h1>
-               <p className="mt-2 text-gray-600">
-                  Discover our amazing collection
+               <p className="text-base font-bold text-black">
+                  Discover our collection
                </p>
             </div>
 
@@ -97,33 +100,33 @@ export default function Products() {
                   {products.map((product) => (
                      <div
                         key={product._id}
-                        className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow"
+                        className="card-brutal bg-white overflow-hidden"
                      >
-                        <div className="h-48 bg-gradient-to-br from-blue-100 to-indigo-200 flex items-center justify-center">
+                        <div className="h-48 bg-gray-100 border-b-brutal flex items-center justify-center">
                            <span className="text-6xl">📦</span>
                         </div>
                         <div className="p-6">
-                           <div className="mb-2">
-                              <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                           <div className="mb-3">
+                              <span className="inline-block bg-black text-white text-xs font-bold px-2 py-1 uppercase">
                                  {product.category}
                               </span>
                            </div>
-                           <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                           <h3 className="text-lg font-black text-black mb-2 uppercase">
                               {product.name}
                            </h3>
-                           <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                           <p className="text-black text-sm mb-4 line-clamp-2">
                               {product.description}
                            </p>
                            <div className="flex justify-between items-center mb-4">
-                              <span className="text-2xl font-bold text-blue-600">
+                              <span className="text-2xl font-black text-black">
                                  ${product.price.toFixed(2)}
                               </span>
                               <span
-                                 className={`text-sm ${product.stock > 0 ? "text-green-600" : "text-red-600"}`}
+                                 className={`text-xs font-bold px-2 py-1 ${product.stock > 0 ? "bg-white border-2 border-black text-black" : "bg-black text-white"}`}
                               >
                                  {product.stock > 0
                                     ? `${product.stock} in stock`
-                                    : "Out of stock"}
+                                    : "SOLD OUT"}
                               </span>
                            </div>
                            <button
@@ -131,11 +134,11 @@ export default function Products() {
                                  addToCart(product._id, product.name)
                               }
                               disabled={product.stock === 0}
-                              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+                              className="w-full btn-brutal bg-black text-white disabled:bg-gray-300 disabled:cursor-not-allowed disabled:text-gray-500"
                            >
                               {product.stock === 0
                                  ? "Out of Stock"
-                                 : "🛒 Add to Cart"}
+                                 : "Add to Cart"}
                            </button>
                         </div>
                      </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
 import { apiClient } from "../lib/api";
-import { Cart, Product } from "../types";
+import type { Cart, Product } from "../types";
 import { Header } from "../components/Header";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router";
@@ -16,16 +17,19 @@ export default function CartPage() {
    const [cartItems, setCartItems] = useState<CartItemWithProduct[]>([]);
    const [loading, setLoading] = useState(true);
    const [error, setError] = useState("");
-   const { user } = useAuth();
+   const { user, isLoading: authLoading } = useAuth();
    const navigate = useNavigate();
 
    useEffect(() => {
+      // Wait for auth to finish loading before checking user
+      if (authLoading) return;
+
       if (!user) {
          navigate("/login");
          return;
       }
       loadCart();
-   }, [user, navigate]);
+   }, [user, authLoading, navigate]);
 
    const loadCart = async () => {
       if (!user) return;
@@ -69,7 +73,7 @@ export default function CartPage() {
          await loadCart();
       } catch (error: any) {
          console.error("Failed to remove from cart:", error);
-         alert(error.message || "Failed to remove item from cart");
+         toast.error(error.message || "Failed to remove item from cart");
       }
    };
 
@@ -83,7 +87,7 @@ export default function CartPage() {
          await loadCart();
       } catch (error: any) {
          console.error("Failed to clear cart:", error);
-         alert(error.message || "Failed to clear cart");
+         toast.error(error.message || "Failed to clear cart");
       }
    };
 
@@ -96,17 +100,16 @@ export default function CartPage() {
                productId: item.productId,
                quantity: item.quantity,
             })),
-            totalAmount: calculateTotal(),
          };
 
          const order = await apiClient.createOrder(user._id, orderData);
          await apiClient.clearCart(user._id);
 
-         alert("Order placed successfully!");
+         toast.success("Order placed successfully!");
          navigate("/orders");
       } catch (error: any) {
          console.error("Failed to checkout:", error);
-         alert(error.message || "Failed to place order");
+         toast.error(error.message || "Failed to place order");
       }
    };
 
@@ -144,92 +147,92 @@ export default function CartPage() {
    }
 
    return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-white">
          <Header />
-         <div className="max-w-7xl mx-auto px-4 py-8">
+         <div className="max-w-7xl mx-auto px-4 py-12">
             <div className="mb-8">
-               <h1 className="text-3xl font-bold text-gray-900">
+               <h1 className="text-4xl font-black text-black uppercase mb-2 tracking-tight">
                   Shopping Cart
                </h1>
-               <p className="mt-2 text-gray-600">
-                  Review your items before checkout
+               <p className="text-base font-bold text-black">
+                  Review your items
                </p>
             </div>
 
             {cartItems.length === 0 ? (
-               <div className="text-center py-12 bg-white rounded-lg shadow">
-                  <span className="text-6xl mb-4 block">🛒</span>
-                  <p className="text-gray-600 mb-4">Your cart is empty</p>
+               <div className="text-center py-16 card-brutal bg-white">
+                  <span className="text-6xl mb-6 block">🛒</span>
+                  <p className="text-xl font-bold text-black mb-6 uppercase">
+                     Your cart is empty
+                  </p>
                   <button
                      onClick={() => navigate("/products")}
-                     className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
+                     className="btn-brutal bg-black text-white"
                   >
                      Continue Shopping
                   </button>
                </div>
             ) : (
                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  <div className="lg:col-span-2">
-                     <div className="bg-white rounded-lg shadow">
-                        {cartItems.map((item) => (
-                           <div
-                              key={item.productId}
-                              className="p-6 border-b last:border-b-0 flex items-center"
-                           >
-                              <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-lg flex items-center justify-center mr-4">
-                                 <span className="text-3xl">📦</span>
-                              </div>
-                              <div className="flex-1">
-                                 <h3 className="text-lg font-semibold text-gray-900">
-                                    {item.product.name}
-                                 </h3>
-                                 <p className="text-sm text-gray-600 mt-1">
-                                    ${item.product.price.toFixed(2)} ×{" "}
-                                    {item.quantity}
-                                 </p>
-                              </div>
-                              <div className="text-right mr-4">
-                                 <p className="text-lg font-bold text-gray-900">
-                                    $
-                                    {(
-                                       item.product.price * item.quantity
-                                    ).toFixed(2)}
-                                 </p>
-                              </div>
-                              <button
-                                 onClick={() => removeFromCart(item.productId)}
-                                 className="text-red-600 hover:text-red-700 p-2"
-                              >
-                                 🗑️
-                              </button>
+                  <div className="lg:col-span-2 space-y-4">
+                     {cartItems.map((item) => (
+                        <div
+                           key={item.productId}
+                           className="card-brutal bg-white p-6 flex items-center gap-4"
+                        >
+                           <div className="w-20 h-20 bg-gray-100 border-brutal flex items-center justify-center flex-shrink-0">
+                              <span className="text-3xl">📦</span>
                            </div>
-                        ))}
-                     </div>
+                           <div className="flex-1">
+                              <h3 className="text-base font-black text-black uppercase mb-1">
+                                 {item.product.name}
+                              </h3>
+                              <p className="text-sm font-bold text-black">
+                                 ${item.product.price.toFixed(2)} ×{" "}
+                                 {item.quantity}
+                              </p>
+                           </div>
+                           <div className="text-right mr-4">
+                              <p className="text-xl font-black text-black">
+                                 $
+                                 {(item.product.price * item.quantity).toFixed(
+                                    2
+                                 )}
+                              </p>
+                           </div>
+                           <button
+                              onClick={() => removeFromCart(item.productId)}
+                              className="btn-brutal bg-black text-white"
+                           >
+                              Remove
+                           </button>
+                        </div>
+                     ))}
 
                      <button
                         onClick={clearCart}
-                        className="mt-4 text-red-600 hover:text-red-700"
+                        className="btn-brutal bg-black text-white mt-4"
                      >
                         Clear Cart
                      </button>
                   </div>
 
                   <div className="lg:col-span-1">
-                     <div className="bg-white rounded-lg shadow p-6 sticky top-4">
-                        <h2 className="text-xl font-bold text-gray-900 mb-4">
-                           Order Summary
+                     <div className="card-brutal bg-white p-6 sticky top-24">
+                        <h2 className="text-xl font-black text-black mb-6 uppercase">
+                           Summary
                         </h2>
-                        <div className="space-y-2 mb-4">
-                           <div className="flex justify-between text-gray-600">
+                        <div className="space-y-3 mb-6">
+                           <div className="flex justify-between text-black font-bold">
                               <span>Subtotal</span>
                               <span>${calculateTotal().toFixed(2)}</span>
                            </div>
-                           <div className="flex justify-between text-gray-600">
+                           <div className="flex justify-between text-black font-bold">
                               <span>Shipping</span>
-                              <span>Free</span>
+                              <span>FREE</span>
                            </div>
-                           <div className="border-t pt-2 mt-2">
-                              <div className="flex justify-between text-lg font-bold text-gray-900">
+                           <div className="border-t-3 border-black pt-3 mt-3">
+                              <div className="flex justify-between text-xl font-black text-black uppercase">
                                  <span>Total</span>
                                  <span>${calculateTotal().toFixed(2)}</span>
                               </div>
@@ -237,15 +240,15 @@ export default function CartPage() {
                         </div>
                         <button
                            onClick={checkout}
-                           className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition font-semibold"
+                           className="w-full btn-brutal bg-black text-white mb-3"
                         >
-                           Proceed to Checkout
+                           Checkout
                         </button>
                         <button
                            onClick={() => navigate("/products")}
-                           className="w-full mt-2 bg-gray-100 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-200 transition"
+                           className="w-full btn-brutal bg-white text-black"
                         >
-                           Continue Shopping
+                           Keep Shopping
                         </button>
                      </div>
                   </div>

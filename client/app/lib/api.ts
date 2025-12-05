@@ -43,28 +43,28 @@ class ApiClient {
       }
    }
 
-   // User API
+   // Auth API
    async register(userData: { name: string; email: string; password: string }) {
-      return this.request("/api/users/register", {
+      return this.request("/api/auth/register", {
          method: "POST",
          body: JSON.stringify(userData),
       });
    }
 
    async login(credentials: { email: string; password: string }) {
-      return this.request("/api/users/login", {
+      return this.request("/api/auth/login", {
          method: "POST",
          body: JSON.stringify(credentials),
       });
    }
 
-   // Product API
+   // Product API (using product-catalog service)
    async getProducts() {
-      return this.request("/api/products/");
+      return this.request("/api/product-catalog/");
    }
 
    async getProduct(id: string) {
-      return this.request(`/api/products/${id}`);
+      return this.request(`/api/product-catalog/${id}`);
    }
 
    async createProduct(product: {
@@ -74,7 +74,7 @@ class ApiClient {
       category: string;
       stock: number;
    }) {
-      return this.request("/api/products/create", {
+      return this.request("/api/product-catalog/", {
          method: "POST",
          body: JSON.stringify(product),
       });
@@ -90,14 +90,14 @@ class ApiClient {
          stock: number;
       }>
    ) {
-      return this.request(`/api/products/${id}`, {
+      return this.request(`/api/product-catalog/${id}`, {
          method: "PUT",
          body: JSON.stringify(product),
       });
    }
 
    async deleteProduct(id: string) {
-      return this.request(`/api/products/${id}`, {
+      return this.request(`/api/product-catalog/${id}`, {
          method: "DELETE",
       });
    }
@@ -121,12 +121,9 @@ class ApiClient {
    }
 
    async removeFromCart(userId: string, productId: string) {
-      //  return this.request(`/api/cart/${userId}/items/${productId}`, {
-      //    method: 'DELETE',
-      //  });
-      alert(
-         "Function not implemented yet, please ensure backend is allow batch delete"
-      );
+      return this.request(`/api/cart/${userId}/items/${productId}`, {
+         method: "DELETE",
+      });
    }
 
    async clearCart(userId: string) {
@@ -143,7 +140,6 @@ class ApiClient {
             productId: string;
             quantity: number;
          }>;
-         totalAmount: number;
       }
    ) {
       return this.request(`/api/orders/${userId}`, {
@@ -156,8 +152,8 @@ class ApiClient {
       return this.request(`/api/orders/${userId}`);
    }
 
-   async getOrder(orderId: string) {
-      return this.request(`/api/orders/order/${orderId}`);
+   async getOrder(userId: string, orderId: string) {
+      return this.request(`/api/orders/${userId}/${orderId}`);
    }
 
    async updateOrderStatus(orderId: string, status: string) {
@@ -172,10 +168,10 @@ class ApiClient {
       orderId: string,
       paymentData: {
          amount: number;
-         paymentMethodId: string;
+         userId: string;
       }
    ) {
-      return this.request(`/api/payments/${orderId}`, {
+      return this.request(`/api/payments/order/${orderId}`, {
          method: "POST",
          body: JSON.stringify(paymentData),
       });
@@ -187,6 +183,25 @@ class ApiClient {
 
    async getOrderPayments(orderId: string) {
       return this.request(`/api/payments/order/${orderId}`);
+   }
+
+   async getPayments(params?: {
+      status?: string;
+      paymentMethod?: string;
+      page?: number;
+      limit?: number;
+   }) {
+      const queryParams = new URLSearchParams();
+      if (params?.status) queryParams.set("status", params.status);
+      if (params?.paymentMethod)
+         queryParams.set("paymentMethod", params.paymentMethod);
+      if (params?.page) queryParams.set("page", params.page.toString());
+      if (params?.limit) queryParams.set("limit", params.limit.toString());
+
+      const queryString = queryParams.toString();
+      return this.request(
+         `/api/payments${queryString ? `?${queryString}` : ""}`
+      );
    }
 }
 

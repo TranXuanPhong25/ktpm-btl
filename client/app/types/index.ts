@@ -49,5 +49,5 @@ export interface Payment {
    amount: number;
    status: string;
    paymentMethod: string;
-   createdAt?: string;
+   paymentDate?: string;
 }

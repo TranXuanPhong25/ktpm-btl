@@ -6,6 +6,7 @@ import {
    Scripts,
    ScrollRestoration,
 } from "react-router";
+import { Toaster } from "react-hot-toast";
 
 import type { Route } from "./+types/root";
 import "./app.css";
@@ -20,7 +21,7 @@ export const links: Route.LinksFunction = () => [
    },
    {
       rel: "stylesheet",
-      href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
+      href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
    },
 ];
 
@@ -38,6 +39,34 @@ export function Layout({ children }: { children: React.ReactNode }) {
          </head>
          <body>
             <AuthProvider>{children}</AuthProvider>
+            <Toaster
+               position="top-right"
+               toastOptions={{
+                  duration: 3000,
+                  style: {
+                     background: "#000",
+                     color: "#fff",
+                     border: "3px solid #000",
+                     boxShadow: "4px 4px 0px 0px #000",
+                     fontWeight: "bold",
+                     textTransform: "uppercase",
+                     fontSize: "0.875rem",
+                     letterSpacing: "0.05em",
+                  },
+                  success: {
+                     style: {
+                        background: "#fff",
+                        color: "#000",
+                     },
+                  },
+                  error: {
+                     style: {
+                        background: "#000",
+                        color: "#fff",
+                     },
+                  },
+               }}
+            />
             <ScrollRestoration />
             <Scripts />
          </body>

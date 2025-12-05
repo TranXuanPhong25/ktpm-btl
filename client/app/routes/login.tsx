@@ -26,19 +26,19 @@ export default function Login() {
    };
 
    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-         <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
-            <div>
-               <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                  Sign in to your account
+      <div className="min-h-screen flex items-center justify-center bg-white p-4">
+         <div className="max-w-md w-full card-brutal bg-white p-8">
+            <div className="mb-8">
+               <h2 className="text-3xl font-black text-black uppercase text-center mb-2 tracking-tight">
+                  Sign In
                </h2>
-               <p className="mt-2 text-center text-sm text-gray-600">
-                  Welcome back! Please enter your details.
+               <p className="text-center text-sm font-bold text-black">
+                  Welcome back
                </p>
             </div>
-            <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+            <form className="space-y-5" onSubmit={handleSubmit}>
                {error && (
-                  <div className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
+                  <div className="bg-black border-brutal text-white px-4 py-3 font-bold text-sm">
                      {error}
                   </div>
                )}
@@ -46,9 +46,9 @@ export default function Login() {
                   <div>
                      <label
                         htmlFor="email"
-                        className="block text-sm font-medium text-gray-700 mb-1"
+                        className="block text-sm font-black text-black mb-2 uppercase"
                      >
-                        Email address
+                        Email
                      </label>
                      <input
                         id="email"
@@ -57,14 +57,14 @@ export default function Login() {
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Enter your email"
+                        className="appearance-none relative block w-full px-4 py-3 border-brutal bg-white text-black font-bold placeholder-gray-400 focus:outline-none"
+                        placeholder="your@email.com"
                      />
                   </div>
                   <div>
                      <label
                         htmlFor="password"
-                        className="block text-sm font-medium text-gray-700 mb-1"
+                        className="block text-sm font-black text-black mb-2 uppercase"
                      >
                         Password
                      </label>
@@ -75,8 +75,8 @@ export default function Login() {
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Enter your password"
+                        className="appearance-none relative block w-full px-4 py-3 border-brutal bg-white text-black font-bold placeholder-gray-400 focus:outline-none"
+                        placeholder="••••••••"
                      />
                   </div>
                </div>
@@ -84,15 +84,15 @@ export default function Login() {
                   <button
                      type="submit"
                      disabled={loading}
-                     className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                     className="w-full btn-brutal bg-black text-white disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                     {loading ? "Signing in..." : "Sign in"}
+                     {loading ? "Signing in..." : "Sign In"}
                   </button>
                </div>
-               <div className="text-center">
+               <div className="text-center pt-4 border-t-3 border-black">
                   <Link
                      to="/register"
-                     className="text-blue-600 hover:text-blue-500 font-medium"
+                     className="text-black font-black hover:underline uppercase text-sm"
                   >
                      Don't have an account? Sign up
                   </Link>
