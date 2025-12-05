@@ -1,6 +1,7 @@
 const { Op } = require("sequelize");
 const Product = require("../models/product");
 const database = require("../config/database");
+const outboxRepository = require("./outboxRepository");
 
 const sequelize = database.getConnection();
 
@@ -18,9 +19,25 @@ class ProductRepository {
       }
    }
 
-   async findAll() {
+   async findAll({ page = 1, limit = 20 } = {}) {
       try {
-         return await Product.findAll();
+         const offset = (page - 1) * limit;
+         const { rows: products, count: total } = await Product.findAndCountAll(
+            {
+               offset,
+               limit,
+               order: [["createdAt", "DESC"]],
+            }
+         );
+         return {
+            data: products,
+            pagination: {
+               page,
+               limit,
+               total,
+               totalPages: Math.ceil(total / limit),
+            },
+         };
       } catch (err) {
          throw new Error(`Failed to get all products: ${err.message}`);
       }
@@ -34,12 +51,14 @@ class ProductRepository {
       }
    }
 
-   async findManyByIds(productIds) {
+   async findManyByIds(productIds, withLock = false, transaction = null) {
       try {
          return await Product.findAll({
             where: {
                id: { [Op.in]: productIds },
             },
+            lock: withLock ? transaction.LOCK.UPDATE : undefined,
+            transaction: transaction,
          });
       } catch (err) {
          throw new Error(`Failed to get products: ${err.message}`);
@@ -105,62 +124,16 @@ class ProductRepository {
       }
    }
 
-   async bulkDeductStock(updates) {
-      if (!Array.isArray(updates) || updates.length === 0) {
-         throw new Error("updates must be a non-empty array");
-      }
-
-      const transaction = await sequelize.transaction();
-
-      try {
-         const aggregatedUpdates = updates.reduce((acc, { id, quantity }) => {
-            acc[id] = (acc[id] || 0) + Number(quantity);
-            return acc;
-         }, {});
-         const uniqueUpdates = Object.entries(aggregatedUpdates).map(
-            ([id, quantity]) => ({ id, quantity })
-         );
-         const ids = uniqueUpdates.map((update) => update.id);
-
-         const products = await Product.findAll({
-            where: { id: { [Op.in]: ids } },
-            transaction: transaction,
-            lock: transaction.LOCK.UPDATE,
-         });
-
-         const productMap = products.reduce((map, product) => {
-            map[product.id.toString()] = product;
-            return map;
-         }, {});
-
-         for (const { id, quantity } of uniqueUpdates) {
-            const product = productMap[id];
-            if (!product) {
-               throw new Error(`Product with ID ${id} not found`);
-            }
-            if (product.stock < quantity) {
-               throw new Error(
-                  `Insufficient stock for product ID: ${id}. Available: ${product.stock}, Requested: ${quantity}`
-               );
-            }
-         }
-
-         await Promise.all(
-            uniqueUpdates.map(({ id, quantity }) =>
-               Product.increment(
-                  { stock: -quantity },
-                  { where: { id: id }, transaction: transaction }
-               )
+   async bulkDeductStockInTransaction(updates, transaction) {
+      await Promise.all(
+         updates.map(({ id, quantity }) =>
+            Product.increment(
+               { stock: -quantity },
+               { where: { id: id }, transaction: transaction },
+               { new: true }
             )
-         );
-
-         await transaction.commit();
-
-         return await this.findManyByIds(ids);
-      } catch (err) {
-         await transaction.rollback();
-         throw new Error(`Failed to deduct stock in bulk: ${err.message}`);
-      }
+         )
+      );
    }
 
    async hasStock(id, quantity) {

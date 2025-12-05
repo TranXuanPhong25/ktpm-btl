@@ -71,7 +71,7 @@ router.post("/order/:orderId", async (req, res) => {
    }
 });
 
-// Get all payments with optional filters
+// Get all payments with optional filters and pagination
 router.get("/", async (req, res) => {
    try {
       const filters = {};
@@ -79,8 +79,13 @@ router.get("/", async (req, res) => {
       if (req.query.paymentMethod)
          filters.paymentMethod = req.query.paymentMethod;
 
-      const payments = await paymentService.getAllPayments(filters);
-      res.json(payments);
+      const page = parseInt(req.query.page) || 1;
+      const limit = Math.min(parseInt(req.query.limit) || 20, 100); // Max 100 items per page
+      const result = await paymentService.getAllPayments(filters, {
+         page,
+         limit,
+      });
+      res.json(result);
    } catch (err) {
       res.status(500).json({ msg: err.message });
    }

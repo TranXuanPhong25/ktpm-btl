@@ -1,31 +1,7 @@
 const RabbitMQConnection = require("../messaging/rabbitmq");
 const orderRepository = require("../repositories/orderRepository");
-
-// Event types
-const EVENTS = {
-   ORDER_CREATED: "order.created",
-   ORDER_FAILED: "order.failed",
-   ORDER_PLACED: "order.placed",
-   INVENTORY_RESERVED: "inventory.reserved",
-   INVENTORY_FAILED: "inventory.failed",
-   PAYMENT_SUCCEEDED: "payment.succeeded",
-   PAYMENT_FAILED: "payment.failed",
-};
-
-// Exchange and queue names
-const EXCHANGES = {
-   ORDER: "order_exchange",
-   INVENTORY: "inventory_exchange",
-   PAYMENT: "payment_exchange",
-};
-
-const QUEUES = {
-   // Queue for Order Saga to receive responses from Inventory Service
-   INVENTORY_TO_ORDER: "inventory.to.order.queue",
-   // Queue for Order Saga to receive responses from Payment Service
-   PAYMENT_TO_ORDER: "payment.to.order.queue",
-};
-
+const Outbox = require("../models/outbox");
+const { EVENTS, EXCHANGES, QUEUES } = require("../config/constants");
 class OrderSaga {
    constructor() {
       this.rabbitMQ = new RabbitMQConnection();
@@ -78,23 +54,43 @@ class OrderSaga {
    }
 
    /**
-    * Publish OrderCreated event to trigger saga
+    * Publish OrderCreated event via outbox pattern
     */
    async publishOrderCreated(order) {
       if (!this.isInitialized) {
          throw new Error("Order Saga not initialized");
       }
 
-      const event = {
+      const orderId = order._id.toString();
+
+      // Check if event already exists in outbox (idempotency)
+      const existingEvent = await Outbox.findOne({
+         aggregateId: orderId,
          eventType: EVENTS.ORDER_CREATED,
-         orderId: order._id.toString(),
+      });
+
+      if (existingEvent) {
+         console.log(
+            `⚠️ OrderCreated event already exists for order: ${orderId}, skipping`
+         );
+         return;
+      }
+
+      const event = {
+         orderId,
          userId: order.userId,
          items: order.items,
          totalAmount: order.totalAmount,
          timestamp: new Date().toISOString(),
       };
 
-      await this.rabbitMQ.publish(EXCHANGES.ORDER, EVENTS.ORDER_CREATED, event);
+      // Write to outbox instead of direct publish
+      await Outbox.create({
+         aggregateId: orderId,
+         aggregateType: "Order",
+         eventType: EVENTS.ORDER_CREATED,
+         payload: JSON.stringify(event),
+      });
    }
 
    async publishOrderPlaced(order) {
@@ -102,25 +98,59 @@ class OrderSaga {
          throw new Error("Order Saga not initialized");
       }
 
-      const event = {
+      const orderId = order._id.toString();
+
+      // Check if event already exists in outbox (idempotency)
+      const existingEvent = await Outbox.findOne({
+         aggregateId: orderId,
          eventType: EVENTS.ORDER_PLACED,
-         orderId: order._id.toString(),
+      });
+
+      if (existingEvent) {
+         console.log(
+            `⚠️ OrderPlaced event already exists for order: ${orderId}, skipping`
+         );
+         return;
+      }
+
+      const event = {
+         orderId,
          userId: order.userId,
          items: order.items,
          totalAmount: order.totalAmount,
          timestamp: new Date().toISOString(),
       };
 
-      await this.rabbitMQ.publish(EXCHANGES.ORDER, EVENTS.ORDER_PLACED, event);
+      // Write to outbox instead of direct publish
+      await Outbox.create({
+         aggregateId: orderId,
+         aggregateType: "Order",
+         eventType: EVENTS.ORDER_PLACED,
+         payload: JSON.stringify(event),
+      });
    }
-   async publishOrderFailed(order) {
+   async publishOrderFailed(order, session) {
       if (!this.isInitialized) {
          throw new Error("Order Saga not initialized");
       }
 
-      const event = {
+      const orderId = order._id.toString();
+
+      // Check if event already exists in outbox (idempotency)
+      const existingEvent = await Outbox.findOne({
+         aggregateId: orderId,
          eventType: EVENTS.ORDER_FAILED,
-         orderId: order._id.toString(),
+      });
+
+      if (existingEvent) {
+         console.log(
+            `⚠️ OrderFailed event already exists for order: ${orderId}, skipping`
+         );
+         return;
+      }
+
+      const event = {
+         orderId,
          userId: order.userId,
          items: order.items,
          totalAmount: order.totalAmount,
@@ -128,7 +158,13 @@ class OrderSaga {
          timestamp: new Date().toISOString(),
       };
 
-      await this.rabbitMQ.publish(EXCHANGES.ORDER, EVENTS.ORDER_FAILED, event);
+      // Write to outbox instead of direct publish
+      await Outbox.create({
+         aggregateId: orderId,
+         aggregateType: "Order",
+         eventType: EVENTS.ORDER_FAILED,
+         payload: JSON.stringify(event),
+      });
    }
 
    /**
@@ -170,34 +206,127 @@ class OrderSaga {
       });
    }
 
-   /**
-    * Handle successful inventory reservation
-    */
    async handleInventoryReserved(event) {
-      const { orderId } = event;
+      const { aggregateId: orderId } = event;
+      console.log(event);
+      // Fetch current order to check status
+      let order;
+      try {
+         order = await orderRepository.findById(orderId);
+      } catch (err) {
+         console.error(`Failed to fetch order ${orderId}:`, err.message);
+         return;
+      }
 
-      // Update order status to 'Processing'
-      await orderRepository.updateStatus(orderId, "Processing");
+      const currentStatus =
+         order && order.status ? String(order.status).toLowerCase() : null;
+      if (currentStatus === "placed") {
+         // Order already placed (payment succeeded first), keep as Placed
+         console.log(
+            `📦 Inventory reserved for order ${orderId}, status already 'Placed' - no change needed`
+         );
+         return;
+      }
+
+      if (currentStatus === "processing") {
+         // Order is processing (reservation succeeded first), update to Created
+         await orderRepository.updateStatus(orderId, "Created");
+         console.log(
+            `📦 Inventory reserved for order ${orderId}, status was 'Processing' -> 'Created'`
+         );
+         return;
+      }
    }
 
-   /**
-    * Handle inventory reservation failure - compensating transaction
-    */
    async handleInventoryFailed(event) {
-      const { orderId, reason } = event;
+      const { aggregateId: orderId } = event;
+      const { reason } = event.payload;
+      let order;
+      try {
+         order = await orderRepository.findById(orderId);
+      } catch (err) {
+         console.error(`Failed to fetch order ${orderId}:`, err.message);
+         return;
+      }
 
-      // Compensating transaction: Mark order as Failed
-      await orderRepository.updateStatus(orderId, "Failed");
+      const currentStatus =
+         order && order.status ? String(order.status).toLowerCase() : null;
+      if (currentStatus === "placed") {
+         // Refund event
+         await orderRepository.updateStatusWithOutbox(orderId, "Failed", {
+            aggregateType: "Order",
+            eventType: EVENTS.ORDER_FAILED,
+            payload: {
+               orderId,
+               userId: order.userId,
+               items: order.items,
+               totalAmount: order.totalAmount,
+               status: "Failed",
+               reason:
+                  "Inventory reservation failed after payment - refund issued",
+               timestamp: new Date().toISOString(),
+            },
+         });
+         console.log(
+            `↩️ Inventory reservation failed for already 'Placed' order ${orderId} - order marked as 'Failed' for refund`
+         );
+         return;
+      }
+      await orderRepository.updateStatus(orderId, "Failed", reason);
    }
 
    /**
     * Handle payment succeeded - Complete order
     */
    async handlePaymentSucceeded(event) {
-      const { orderId, paymentId } = event;
+      const { orderId, paymentId } = event.payload;
 
-      // Update order status to 'Completed'
-      await orderRepository.updateStatus(orderId, "Completed");
+      // Ensure order is in a state that can be moved to Placed.
+      // Only update when order status is 'Pending' or 'Created' (case-insensitive).
+      let order;
+      try {
+         order = await orderRepository.findById(orderId);
+      } catch (err) {
+         console.error(`Failed to fetch order ${orderId}:`, err.message);
+      }
+
+      const currentStatus =
+         order && order.status ? String(order.status).toLowerCase() : null;
+
+      if (currentStatus === "pending" || currentStatus === "created") {
+         // Update order status to 'Placed' with outbox event
+         await orderRepository.updateStatusWithOutbox(orderId, "Placed", {
+            aggregateType: "Order",
+            eventType: EVENTS.ORDER_PLACED,
+            payload: {
+               orderId,
+               paymentId,
+               status: "Placed",
+               timestamp: new Date().toISOString(),
+            },
+         });
+         return;
+      }
+
+      // If order is not in 'created'/'pending' state, publish ORDER_FAILED so payment service can refund
+      const reason = `Order status is '${order ? order.status : "unknown"}', cannot transition to Placed`;
+      await orderRepository.updateStatusWithOutbox(orderId, "Failed", {
+         aggregateType: "Order",
+         eventType: EVENTS.ORDER_FAILED,
+         payload: {
+            orderId,
+            paymentId,
+            userId: order ? order.userId : null,
+            items: order ? order.items : [],
+            totalAmount: order ? order.totalAmount : 0,
+            status: "Failed",
+            reason,
+            timestamp: new Date().toISOString(),
+         },
+      });
+      console.log(
+         `📤 ORDER_FAILED event written to outbox for order ${orderId} (paymentId ${paymentId}) – reason: ${reason}`
+      );
    }
 
    /**
@@ -205,12 +334,22 @@ class OrderSaga {
     * Inventory will be restored by product service
     */
    async handlePaymentFailed(event) {
-      const { orderId, reason } = event;
-
-      // Compensating transaction: Mark order as Failed
-      await orderRepository.updateStatus(orderId, "Failed");
-      const order = await orderRepository.findById(orderId);
-      await this.publishOrderFailed(order);
+      const { orderId, reason } = event.payload;
+      try {
+         await orderRepository.updateStatusWithOutbox(orderId, "Failed", {
+            aggregateType: "Order",
+            eventType: EVENTS.ORDER_FAILED,
+            payload: {
+               orderId,
+               status: "Failed",
+               reason,
+               timestamp: new Date().toISOString(),
+            },
+         });
+      } catch (error) {
+         console.error("Error handling payment failed event:", error.message);
+         throw error;
+      }
    }
 
    async close() {

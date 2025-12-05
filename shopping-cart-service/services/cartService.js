@@ -39,7 +39,7 @@ class CartService {
       // Verify product exists
       try {
          const productResponse = await axios.get(
-            `${PRODUCT_SERVICE_URI}/api/products/${productId}`
+            `${PRODUCT_SERVICE_URI}/api/product-catalog/${productId}`
          );
          if (!productResponse.data) {
             throw new Error("Product not found");

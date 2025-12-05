@@ -44,12 +44,28 @@ class PaymentRepository {
    }
 
    /**
-    * Find all payments
-    * @returns {Promise<Array>} List of all payments
+    * Find all payments with pagination
+    * @param {Object} options - Pagination options
+    * @param {number} options.page - Page number (1-based)
+    * @param {number} options.limit - Items per page
+    * @returns {Promise<Object>} Paginated result with data and metadata
     */
-   async findAll() {
+   async findAll({ page = 1, limit = 20 } = {}) {
       try {
-         return await Payment.find();
+         const skip = (page - 1) * limit;
+         const [payments, total] = await Promise.all([
+            Payment.find().skip(skip).limit(limit).sort({ paymentDate: -1 }),
+            Payment.countDocuments(),
+         ]);
+         return {
+            data: payments,
+            pagination: {
+               page,
+               limit,
+               total,
+               totalPages: Math.ceil(total / limit),
+            },
+         };
       } catch (err) {
          throw new Error(`Failed to get all payments: ${err.message}`);
       }
@@ -103,26 +119,60 @@ class PaymentRepository {
    }
 
    /**
-    * Find payments by status
+    * Find payments by status with pagination
     * @param {string} status - Payment status
-    * @returns {Promise<Array>} List of payments
+    * @param {Object} options - Pagination options
+    * @param {number} options.page - Page number (1-based)
+    * @param {number} options.limit - Items per page
+    * @returns {Promise<Object>} Paginated result with data and metadata
     */
-   async findByStatus(status) {
+   async findByStatus(status, { page = 1, limit = 20 } = {}) {
       try {
-         return await Payment.find({ status });
+         const skip = (page - 1) * limit;
+         const query = { status };
+         const [payments, total] = await Promise.all([
+            Payment.find(query).skip(skip).limit(limit).sort({ createdAt: -1 }),
+            Payment.countDocuments(query),
+         ]);
+         return {
+            data: payments,
+            pagination: {
+               page,
+               limit,
+               total,
+               totalPages: Math.ceil(total / limit),
+            },
+         };
       } catch (err) {
          throw new Error(`Failed to get payments by status: ${err.message}`);
       }
    }
 
    /**
-    * Find payments by payment method
+    * Find payments by payment method with pagination
     * @param {string} paymentMethod - Payment method
-    * @returns {Promise<Array>} List of payments
+    * @param {Object} options - Pagination options
+    * @param {number} options.page - Page number (1-based)
+    * @param {number} options.limit - Items per page
+    * @returns {Promise<Object>} Paginated result with data and metadata
     */
-   async findByPaymentMethod(paymentMethod) {
+   async findByPaymentMethod(paymentMethod, { page = 1, limit = 20 } = {}) {
       try {
-         return await Payment.find({ paymentMethod });
+         const skip = (page - 1) * limit;
+         const query = { paymentMethod };
+         const [payments, total] = await Promise.all([
+            Payment.find(query).skip(skip).limit(limit).sort({ createdAt: -1 }),
+            Payment.countDocuments(query),
+         ]);
+         return {
+            data: payments,
+            pagination: {
+               page,
+               limit,
+               total,
+               totalPages: Math.ceil(total / limit),
+            },
+         };
       } catch (err) {
          throw new Error(`Failed to get payments by method: ${err.message}`);
       }

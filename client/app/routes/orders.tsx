@@ -158,6 +158,13 @@ export default function Orders() {
                               <p className="text-sm font-bold text-black">
                                  {formatDate(order.createdAt)}
                               </p>
+                              {(order.status.toLowerCase() === "failed" ||
+                                 order.status.toLowerCase() === "cancelled") &&
+                                 order.reason && (
+                                    <p className="text-sm font-bold text-red-600 mt-1">
+                                       Reason: {order.reason}
+                                    </p>
+                                 )}
                            </div>
                            <div className="flex items-center gap-3">
                               <span

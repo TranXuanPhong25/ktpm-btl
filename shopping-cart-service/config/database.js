@@ -8,7 +8,7 @@ class Database {
    async connect(mongoURI) {
       try {
          if (this.connection) {
-            console.log("✅ Using existing MongoDB connection");
+            console.log("Using existing MongoDB connection");
             return this.connection;
          }
 
@@ -18,11 +18,11 @@ class Database {
          };
 
          this.connection = await mongoose.connect(mongoURI, options);
-         console.log("✅ Shopping Cart Service is Connected to MongoDB");
+         console.log("Shopping Cart Service is Connected to MongoDB");
          return this.connection;
       } catch (err) {
          console.error(
-            "🚫 Error connecting to MongoDB -> Shopping Cart Service: ",
+            "Error connecting to MongoDB -> Shopping Cart Service: ",
             err.message
          );
          throw err;
@@ -33,7 +33,7 @@ class Database {
       if (this.connection) {
          await mongoose.disconnect();
          this.connection = null;
-         console.log("✅ Disconnected from MongoDB");
+         console.log("Disconnected from MongoDB");
       }
    }
 

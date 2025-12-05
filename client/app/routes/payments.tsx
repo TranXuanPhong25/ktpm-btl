@@ -200,7 +200,7 @@ export default function Payments() {
                   <div className="text-2xl font-black text-black">
                      {
                         payments.filter((p) =>
-                           ["completed", "success"].includes(
+                           ["completed", "succeeded"].includes(
                               p.status.toLowerCase()
                            )
                         ).length

@@ -82,7 +82,7 @@ class OrderEventHandler {
    }
 
    async handleOrderPlaced(event) {
-      const { orderId, userId, items } = event;
+      const { orderId, userId, items } = event.payload;
 
       console.log(`✓ Sending order success notification for order: ${orderId}`);
 
@@ -129,7 +129,7 @@ E-Commerce Team
    }
 
    async handleOrderFailed(event) {
-      const { orderId, userId, reason } = event;
+      const { orderId, userId, reason } = event.payload;
 
       console.log(`✗ Sending order failure notification for order: ${orderId}`);
 

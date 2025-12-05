@@ -17,15 +17,20 @@ router.post("/", async (req, res) => {
    }
 });
 
-// Get All Products
+// Get All Products with pagination
 router.get("/", async (req, res) => {
    try {
       const filters = {};
       if (req.query.category) {
          filters.category = req.query.category;
       }
-      const products = await productService.getAllProducts(filters);
-      return res.json(products);
+      const page = parseInt(req.query.page) || 1;
+      const limit = Math.min(parseInt(req.query.limit) || 20, 100); // Max 100 items per page
+      const result = await productService.getAllProducts(filters, {
+         page,
+         limit,
+      });
+      return res.json(result);
    } catch (err) {
       res.status(500).json({ msg: err.message });
    }

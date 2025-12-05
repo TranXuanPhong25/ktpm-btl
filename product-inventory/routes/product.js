@@ -16,11 +16,13 @@ router.post("/", async (req, res) => {
    }
 });
 
-// Get All Products
+// Get All Products with pagination
 router.get("/", async (req, res) => {
    try {
-      const products = await productService.getAllProducts();
-      return res.json(products);
+      const page = parseInt(req.query.page) || 1;
+      const limit = Math.min(parseInt(req.query.limit) || 20, 100); // Max 100 items per page
+      const result = await productService.getAllProducts({ page, limit });
+      return res.json(result);
    } catch (err) {
       res.status(500).json({ msg: err.message });
    }
@@ -116,32 +118,6 @@ router.put("/:id/deduction", async (req, res) => {
    }
 });
 
-// Bulk deduct stock of multiple products
-router.post("/bulk/deduction", async (req, res) => {
-   const { updates } = req.body; // [{ id, quantity }, ...]
-
-   try {
-      if (!Array.isArray(updates) || updates.length === 0) {
-         return res
-            .status(400)
-            .json({ msg: "updates must be a non-empty array" });
-      }
-
-      const updatedProducts = await productService.bulkDeductStock(updates);
-      return res.json(updatedProducts);
-   } catch (err) {
-      if (
-         err.message.includes("Insufficient stock") ||
-         err.message.includes("not found") ||
-         err.message.includes("Invalid quantity")
-      ) {
-         return res.status(400).json({ msg: err.message });
-      }
-
-      res.status(500).json({ msg: err.message });
-   }
-});
-
 // Add stock to product
 router.put("/:id/addition", async (req, res) => {
    const { quantity } = req.body;
@@ -175,17 +151,6 @@ router.get("/:id/availability", async (req, res) => {
       if (err.message === "Product not found") {
          return res.status(404).json({ msg: err.message });
       }
-      res.status(500).json({ msg: err.message });
-   }
-});
-
-// Get low stock products
-router.get("/stock/low", async (req, res) => {
-   try {
-      const threshold = parseInt(req.query.threshold) || 10;
-      const products = await productService.getLowStockProducts(threshold);
-      return res.json(products);
-   } catch (err) {
       res.status(500).json({ msg: err.message });
    }
 });

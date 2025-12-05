@@ -23,11 +23,12 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 app.use("/api/product-inventory", productRoutes);
 
 const sequelize = database.getConnection();
+
 database
    .connect()
    .then(async () => {
       await sequelize.sync({ alter: true });
-      console.log("🔄 Database models synchronized");
+      console.log("Database models synchronized");
       await OrderEventHandler.initialize(rabbitMQUri);
 
       app.listen(PORT, () => {
@@ -41,9 +42,9 @@ database
 
 // Graceful shutdown
 process.on("SIGINT", async () => {
-   await OrderEventHandler.close();
-
    console.log("\nShutting down Product Inventory...");
+
+   await OrderEventHandler.close();
    await database.disconnect();
    process.exit(0);
 });

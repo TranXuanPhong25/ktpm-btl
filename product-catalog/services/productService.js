@@ -7,7 +7,7 @@ class ProductService {
     * @returns {Promise<Object>} Created product
     */
    async createProduct(productData) {
-      const { name, description, category } = productData;
+      const { _id, name, description, category, price } = productData;
 
       // Validation
       if (!name || !description || !category) {
@@ -16,24 +16,41 @@ class ProductService {
          );
       }
 
+      if (price === undefined || price <= 0) {
+         throw new Error("Price must be greater than 0");
+      }
+
       // Create product through repository
-      return await productRepository.create({
+      const createData = {
          name,
          description,
          category,
-      });
+         price,
+      };
+
+      // Support custom _id if provided
+      if (_id) {
+         createData._id = _id;
+      }
+
+      return await productRepository.create(createData);
    }
 
    /**
-    * Get all products
-    * @param {Object} filters - Optional filters
-    * @returns {Promise<Array>} List of products
+    * Get all products with pagination
+    * @param {Object} filters - Optional filters (category)
+    * @param {Object} pagination - Pagination options (page, limit)
+    * @returns {Promise<Object>} Paginated result with data and metadata
     */
-   async getAllProducts(filters = {}) {
+   async getAllProducts(filters = {}, pagination = {}) {
+      const { page = 1, limit = 20 } = pagination;
       if (filters.category) {
-         return await productRepository.findByCategory(filters.category);
+         return await productRepository.findByCategory(filters.category, {
+            page,
+            limit,
+         });
       }
-      return await productRepository.findAll();
+      return await productRepository.findAll({ page, limit });
    }
 
    /**
@@ -86,7 +103,12 @@ class ProductService {
          throw new Error("Product ID is required");
       }
 
-      const { name, description, category } = updateData;
+      const { name, description, category, price } = updateData;
+
+      // Validation
+      if (price !== undefined && price <= 0) {
+         throw new Error("Price must be greater than 0");
+      }
 
       // Check if product exists
       const existingProduct = await productRepository.findById(productId);
@@ -99,6 +121,7 @@ class ProductService {
          name,
          description,
          category,
+         price,
       });
 
       return updatedProduct;

@@ -1,0 +1,20 @@
+{
+   "name": "postgres-relay-publisher",
+   "version": "1.0.0",
+   "description": "Generic outbox relay publisher service that polls PostgreSQL outbox and publishes to RabbitMQ",
+   "main": "index.js",
+   "scripts": {
+      "start": "node index.js",
+      "dev": "nodemon index.js"
+   },
+   "dependencies": {
+      "amqplib": "^0.10.3",
+      "sequelize": "^6.35.0",
+      "pg": "^8.11.0",
+      "pg-hstore": "^2.3.4",
+      "dotenv": "^16.0.0"
+   },
+   "devDependencies": {
+      "nodemon": "^3.0.0"
+   }
+}

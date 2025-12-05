@@ -1,21 +1,20 @@
+const outboxRepository = require("../repositories/outboxRepository");
 const productRepository = require("../repositories/productRepository");
+const outboxService = require("./outboxService");
+const transaction = require("../repositories/transaction");
 
 class ProductService {
    /**
     * Create a new product
-    * @param {Object} productData - Product data (id, price, stock)
+    * @param {Object} productData - Product data (id, stock)
     * @returns {Promise<Object>} Created product
     */
    async createProduct(productData) {
-      const { id, price, stock } = productData;
+      const { id, stock } = productData;
 
       // Validation
       if (!id) {
          throw new Error("Product ID is required");
-      }
-
-      if (!price || price <= 0) {
-         throw new Error("Price must be greater than 0");
       }
 
       if (stock === undefined || stock < 0) {
@@ -25,7 +24,6 @@ class ProductService {
       // Create product
       const product = await productRepository.create({
          id,
-         price,
          stock,
       });
 
@@ -33,12 +31,13 @@ class ProductService {
    }
 
    /**
-    * Get all products
-    * @param {Object} filters - Optional filters
-    * @returns {Promise<Array>} List of products
+    * Get all products with pagination
+    * @param {Object} pagination - Pagination options (page, limit)
+    * @returns {Promise<Object>} Paginated result with data and metadata
     */
-   async getAllProducts() {
-      return await productRepository.findAll();
+   async getAllProducts(pagination = {}) {
+      const { page = 1, limit = 20 } = pagination;
+      return await productRepository.findAll({ page, limit });
    }
 
    /**
@@ -91,13 +90,9 @@ class ProductService {
          throw new Error("Product ID is required");
       }
 
-      const { price, stock } = updateData;
+      const { stock } = updateData;
 
       // Validation
-      if (price !== undefined && price <= 0) {
-         throw new Error("Price must be greater than 0");
-      }
-
       if (stock !== undefined && stock < 0) {
          throw new Error("Stock cannot be negative");
       }
@@ -110,7 +105,6 @@ class ProductService {
 
       // Update product
       const updatedProduct = await productRepository.update(productId, {
-         price,
          stock,
       });
 
@@ -158,12 +152,6 @@ class ProductService {
       return updatedProduct;
    }
 
-   /**
-    * Deduct stock from multiple products in bulk with business logic
-    * @param {Array<{ id: string, quantity: number }>} updates - List of productId and quantity
-    * @returns {Promise<Array<Object>>} List of updated products
-    */
-   // ProductService.js - bulkDeductStock (BẢN SỬA)
    async bulkDeductStock(updates) {
       if (!Array.isArray(updates) || updates.length === 0) {
          throw new Error("updates must be a non-empty array");
@@ -179,6 +167,79 @@ class ProductService {
       }
 
       return await productRepository.bulkDeductStock(updates);
+   }
+
+   async bulkDeductStockWithOutbox(updates, outboxData) {
+      if (!Array.isArray(updates) || updates.length === 0) {
+         throw new Error("updates must be a non-empty array");
+      }
+
+      if (!outboxData || !outboxData.eventType || !outboxData.payload) {
+         throw new Error("outboxData must contain eventType and payload");
+      }
+
+      for (const { id, quantity } of updates) {
+         if (!id) throw new Error("Product ID is required in updates");
+         if (!quantity || quantity <= 0) {
+            throw new Error(
+               `Invalid quantity for product ${id}. Must be greater than 0`
+            );
+         }
+      }
+
+      return await transaction.execute(async (tx) => {
+         // Aggregate updates by product ID
+         const aggregatedUpdates = updates.reduce((acc, { id, quantity }) => {
+            acc[id] = (acc[id] || 0) + Number(quantity);
+            return acc;
+         }, {});
+         const uniqueUpdates = Object.entries(aggregatedUpdates).map(
+            ([id, quantity]) => ({ id, quantity })
+         );
+         const ids = uniqueUpdates.map((update) => update.id);
+
+         // Lock and fetch products
+         const withLock = true;
+         const products = await productRepository.findManyByIds(
+            ids,
+            withLock,
+            tx
+         );
+
+         // Build product map
+         const productMap = products.reduce((map, product) => {
+            map[product.id.toString()] = product;
+            return map;
+         }, {});
+
+         // Validate stock availability
+         for (const { id, quantity } of uniqueUpdates) {
+            const product = productMap[id];
+            if (!product) {
+               throw new Error(`Product with ID ${id} not found`);
+            }
+            if (product.stock < quantity) {
+               throw new Error(
+                  `Insufficient stock for product ID: ${id}. Available: ${product.stock}, Requested: ${quantity}`
+               );
+            }
+         }
+
+         // Deduct stock
+         await productRepository.bulkDeductStockInTransaction(
+            uniqueUpdates,
+            tx
+         );
+
+         // Create outbox entry
+         const outboxEntry = await outboxService.createOutboxEntry(
+            outboxData,
+            tx
+         );
+
+         const updatedProducts = await productRepository.findManyByIds(ids);
+         return { products: updatedProducts, outbox: outboxEntry };
+      });
    }
 
    /**

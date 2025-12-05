@@ -1,4 +1,5 @@
 const RabbitMQConnection = require("../messaging/rabbitmq");
+const Outbox = require("../models/outbox");
 
 // Event types
 const EVENTS = {
@@ -38,11 +39,23 @@ class PaymentEventHandler {
    }
 
    /**
-    * Publish payment succeeded event
+    * Publish payment succeeded event via outbox
     */
    async publishPaymentSucceeded(orderId, userId, amount, paymentResult) {
-      const event = {
+      // Check if event already exists in outbox (idempotency)
+      const existingEvent = await Outbox.findOne({
+         aggregateId: orderId,
          eventType: EVENTS.PAYMENT_SUCCEEDED,
+      });
+
+      if (existingEvent) {
+         console.log(
+            `⚠️ PaymentSucceeded event already exists for order: ${orderId}, skipping`
+         );
+         return;
+      }
+
+      const event = {
          orderId,
          userId,
          amount,
@@ -50,21 +63,36 @@ class PaymentEventHandler {
          timestamp: new Date().toISOString(),
       };
 
-      console.log(`📤 Publishing PaymentSucceeded event for order: ${orderId}`);
-
-      await this.rabbitMQ.publish(
-         EXCHANGES.PAYMENT,
-         EVENTS.PAYMENT_SUCCEEDED,
-         event
+      console.log(
+         `📤 Writing PaymentSucceeded event to outbox for order: ${orderId}`
       );
+
+      await Outbox.create({
+         aggregateId: orderId,
+         aggregateType: "Payment",
+         eventType: EVENTS.PAYMENT_SUCCEEDED,
+         payload: JSON.stringify(event),
+      });
    }
 
    /**
-    * Publish payment failed event
+    * Publish payment failed event via outbox
     */
    async publishPaymentFailed(orderId, userId, reason, items) {
-      const event = {
+      // Check if event already exists in outbox (idempotency)
+      const existingEvent = await Outbox.findOne({
+         aggregateId: orderId,
          eventType: EVENTS.PAYMENT_FAILED,
+      });
+
+      if (existingEvent) {
+         console.log(
+            `⚠️ PaymentFailed event already exists for order: ${orderId}, skipping`
+         );
+         return;
+      }
+
+      const event = {
          orderId,
          userId,
          reason,
@@ -72,13 +100,16 @@ class PaymentEventHandler {
          timestamp: new Date().toISOString(),
       };
 
-      console.log(`📤 Publishing PaymentFailed event for order: ${orderId}`);
-
-      await this.rabbitMQ.publish(
-         EXCHANGES.PAYMENT,
-         EVENTS.PAYMENT_FAILED,
-         event
+      console.log(
+         `📤 Writing PaymentFailed event to outbox for order: ${orderId}`
       );
+
+      await Outbox.create({
+         aggregateId: orderId,
+         aggregateType: "Payment",
+         eventType: EVENTS.PAYMENT_FAILED,
+         payload: JSON.stringify(event),
+      });
    }
 
    async close() {

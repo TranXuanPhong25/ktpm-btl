@@ -142,10 +142,10 @@ function startGrpcServer(port = 50051) {
       grpc.ServerCredentials.createInsecure(),
       (err, boundPort) => {
          if (err) {
-            console.error("❌ Failed to start gRPC server:", err);
+            console.error("Failed to start gRPC server:", err);
             return;
          }
-         console.log(`✅ User Service gRPC running on port ${boundPort}`);
+         console.log(`User Service gRPC running on port ${boundPort}`);
       }
    );
 

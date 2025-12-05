@@ -13,10 +13,6 @@ const Product = sequelize.define("Product", {
       primaryKey: true,
       allowNull: false,
    },
-   price: {
-      type: DataTypes.DECIMAL(10, 2),
-      allowNull: false,
-   },
    stock: {
       type: DataTypes.INTEGER,
       defaultValue: 0,

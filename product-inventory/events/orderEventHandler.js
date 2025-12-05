@@ -1,15 +1,16 @@
 const RabbitMQConnection = require("../messaging/rabbitmq");
 const productService = require("../services/productService");
+const outboxService = require("../services/outboxService");
 
-// Event types
 const EVENTS = {
    ORDER_CREATED: "order.created",
+   ORDER_PROCESSING: "order.processing",
    INVENTORY_RESERVED: "inventory.reserved",
+   INVENTORY_RESTORED: "inventory.restored",
    INVENTORY_FAILED: "inventory.failed",
    ORDER_FAILED: "order.failed",
 };
 
-// Exchange and queue names
 const EXCHANGES = {
    ORDER: "order_exchange",
    INVENTORY: "inventory_exchange",
@@ -32,19 +33,21 @@ class OrderEventHandler {
       try {
          await this.rabbitMQ.connect(rabbitMQUri);
 
-         // Setup exchanges
          await this.rabbitMQ.assertExchange(EXCHANGES.ORDER);
          await this.rabbitMQ.assertExchange(EXCHANGES.INVENTORY);
 
-         // Setup dedicated queue for receiving Order Created events from Order Service
          await this.rabbitMQ.assertQueue(QUEUES.ORDER_TO_INVENTORY);
          await this.rabbitMQ.bindQueue(
             QUEUES.ORDER_TO_INVENTORY,
             EXCHANGES.ORDER,
             EVENTS.ORDER_CREATED
          );
+         await this.rabbitMQ.bindQueue(
+            QUEUES.ORDER_TO_INVENTORY,
+            EXCHANGES.ORDER,
+            EVENTS.ORDER_PROCESSING
+         );
 
-         // Setup dedicated queue for receiving Order Failed events (for compensation)
          await this.rabbitMQ.assertQueue(
             QUEUES.ORDER_TO_INVENTORY_COMPENSATION
          );
@@ -54,24 +57,19 @@ class OrderEventHandler {
             EVENTS.ORDER_FAILED
          );
 
-         // Start listening to events
          await this.startListening();
 
          this.isInitialized = true;
          console.log(
-            "✓ Product Service Order Event Handler initialized successfully"
+            "Product Service Order Event Handler initialized successfully"
          );
       } catch (error) {
-         console.error(
-            "Failed to initialize Order Event Handler:",
-            error.message
-         );
+         console.error("Failed to initialize Event Handler:", error.message);
          throw error;
       }
    }
 
    async startListening() {
-      // Listen to Order Created events from Order Service
       await this.rabbitMQ.consume(QUEUES.ORDER_TO_INVENTORY, async (event) => {
          console.log(
             `📥 [Inventory] Received from Order Service: ${event.eventType}`
@@ -79,7 +77,12 @@ class OrderEventHandler {
 
          try {
             if (event.eventType === EVENTS.ORDER_CREATED) {
-               await this.handleOrderCreated(event);
+               console.log(
+                  `Received Order Created event for order: ${event.payload.orderId}`
+               );
+            }
+            if (event.eventType === EVENTS.ORDER_PROCESSING) {
+               await this.handleOrderProcessing(event);
             }
          } catch (error) {
             console.error("Error handling order created event:", error.message);
@@ -87,14 +90,12 @@ class OrderEventHandler {
          }
       });
 
-      // Listen to Order Failed events for compensation
       await this.rabbitMQ.consume(
          QUEUES.ORDER_TO_INVENTORY_COMPENSATION,
          async (event) => {
             console.log(
                `📥 [Inventory] Received compensation request: ${event.eventType}`
             );
-
             try {
                if (event.eventType === EVENTS.ORDER_FAILED) {
                   await this.handleOrderFailed(event);
@@ -109,164 +110,93 @@ class OrderEventHandler {
       );
    }
 
-   /**
-    * Handle OrderCreated event - Reserve inventory (deduct stock)
-    */
-   async handleOrderCreated(event) {
-      const { orderId, items, userId } = event;
+   async handleOrderProcessing(event) {
+      const { aggregateId, payload } = event;
+      const { items, userId } = payload;
+      console.log(event);
+      console.log(
+         `🔄 Processing inventory reservation for order: ${aggregateId}`
+      );
 
-      console.log(`🔄 Processing inventory reservation for order: ${orderId}`);
+      const existingEvent = await outboxService.findOutboxEntry({
+         aggregateId: aggregateId,
+         eventType: [EVENTS.INVENTORY_RESERVED, EVENTS.INVENTORY_FAILED],
+      });
 
-      try {
-         // Attempt to deduct stock for all items
-         const updates = items.map((item) => ({
-            id: item.productId,
-            quantity: item.quantity,
-         }));
-
-         await productService.bulkDeductStock(updates);
-
-         // Success - publish InventoryReserved event
-         await this.publishInventoryReserved(orderId, userId, items);
-
-         console.log(`✓ Inventory reserved successfully for order: ${orderId}`);
-      } catch (error) {
-         // Failure - publish InventoryFailed event
-         await this.publishInventoryFailed(orderId, userId, error.message);
-
+      if (existingEvent) {
          console.log(
-            `✗ Inventory reservation failed for order: ${orderId}. Reason: ${error.message}`
+            `⚠️ Order ${aggregateId} already processed (${existingEvent.eventType}), skipping`
          );
+         return;
       }
-   }
-   async handleOrderFailed(event) {
-      const { orderId, items, userId } = event;
-
-      console.log(`🔄 Processing inventory reservation for order: ${orderId}`);
-
       try {
-         // Attempt to deduct stock for all items
          const updates = items.map((item) => ({
             id: item.productId,
             quantity: item.quantity,
          }));
          console.log(updates);
-         for (const update of updates) {
-            await productService.addStock(update.id, update.quantity);
-            console.log(
-               `✓ Restored ${update.quantity} units of product ${update.id}`
-            );
+         const outboxData = {
+            aggregateId,
+            aggregateType: "Inventory",
+            eventType: EVENTS.INVENTORY_RESERVED,
+            payload: JSON.stringify({ userId }),
+            status: "PENDING",
+         };
+         await productService.bulkDeductStockWithOutbox(updates, outboxData);
+      } catch (error) {
+         await outboxService.createOutboxEntry({
+            aggregateId: aggregateId,
+            aggregateType: "Inventory",
+            eventType: EVENTS.INVENTORY_FAILED,
+            payload: {
+               userId,
+               reason: error.message,
+               timestamp: new Date().toISOString(),
+            },
+            status: "PENDING",
+         });
+         console.log(
+            `✗ Inventory reservation failed for order: ${aggregateId}. Reason: ${error.message}`
+         );
+      }
+   }
+   async handleOrderFailed(event) {
+      const { aggregateId, payload } = event;
+      const { items } = payload;
+      console.log(
+         `🔄 Processing inventory restoration for order: ${aggregateId}`
+      );
+
+      const existingRestoration = await outboxService.findOutboxEntry({
+         aggregateId: aggregateId,
+         eventType: EVENTS.INVENTORY_RESTORED,
+      });
+
+      if (existingRestoration) {
+         console.log(
+            `⚠️ Inventory already restored for order: ${aggregateId}, skipping`
+         );
+         return;
+      }
+
+      try {
+         for (const item of items) {
+            await productService.addStock(item.productId, item.quantity);
          }
-         console.log(`✓ Inventory restoration completed for order: ${orderId}`);
+
+         await outboxService.createOutboxEntry({
+            aggregateId,
+            aggregateType: "Inventory",
+            eventType: EVENTS.INVENTORY_RESTORED,
+            payload: {},
+            status: "PROCESSED",
+         });
       } catch (error) {
          console.error(
-            `✗ Inventory restoration failed for order: ${orderId}. Reason: ${error.message}`
-         );
-         // Log but don't throw - compensation failure should be monitored but not crash the service
-      }
-   }
-
-   /**
-    * Publish InventoryReserved event
-    */
-   async publishInventoryReserved(orderId, userId, items) {
-      const event = {
-         eventType: EVENTS.INVENTORY_RESERVED,
-         orderId,
-         userId,
-         items,
-         timestamp: new Date().toISOString(),
-      };
-
-      // Calculate total amount for payment processing
-      const totalAmount = await this.calculateTotalAmount(items);
-      event.totalAmount = totalAmount;
-
-      await this.rabbitMQ.publish(
-         EXCHANGES.INVENTORY,
-         EVENTS.INVENTORY_RESERVED,
-         event
-      );
-
-      console.log(`📤 Published InventoryReserved event for order: ${orderId}`);
-   }
-
-   /**
-    * Calculate total amount from items
-    */
-   async calculateTotalAmount(items) {
-      let total = 0;
-      for (const item of items) {
-         const product = await productService.getProductById(item.productId);
-         total += product.price * item.quantity;
-      }
-      return total;
-   }
-
-   /**
-    * Publish InventoryFailed event
-    */
-   async publishInventoryFailed(orderId, userId, reason) {
-      const event = {
-         eventType: EVENTS.INVENTORY_FAILED,
-         orderId,
-         userId,
-         reason,
-         timestamp: new Date().toISOString(),
-      };
-
-      await this.rabbitMQ.publish(
-         EXCHANGES.INVENTORY,
-         EVENTS.INVENTORY_FAILED,
-         event
-      );
-
-      console.log(`📤 Published InventoryFailed event for order: ${orderId}`);
-   }
-
-   /**
-    * Handle PaymentFailed event - Compensate by restoring inventory
-    * @deprecated
-    */
-   async handlePaymentFailed(event) {
-      const { orderId } = event;
-
-      console.log(
-         `🔄 Compensating inventory for order: ${orderId} due to payment failure`
-      );
-
-      // We need to get the order items to restore inventory
-      // For now, we'll need to retrieve this from the event or store it
-      // In a production system, you might store order-inventory mappings
-
-      // Since we don't have items in payment.failed event, we'll add them
-      // The payment service should include items in the event
-      if (event.items && Array.isArray(event.items)) {
-         try {
-            // Restore stock for all items
-            for (const item of event.items) {
-               await productService.addStock(item.productId, item.quantity);
-               console.log(
-                  `✓ Restored ${item.quantity} units of product ${item.productId}`
-               );
-            }
-
-            console.log(
-               `✓ Inventory compensation completed for order: ${orderId}`
-            );
-         } catch (error) {
-            console.error(
-               `✗ Failed to compensate inventory for order: ${orderId}. Error: ${error.message}`
-            );
-            // Log but don't throw - compensation failure should be monitored but not crash the service
-         }
-      } else {
-         console.warn(
-            `⚠️  Cannot compensate inventory for order ${orderId}: items not provided in event`
+            `✗ Inventory restoration failed for order: ${aggregateId}. Reason: ${error.message}`
          );
       }
    }
-
    async close() {
       await this.rabbitMQ.close();
    }

@@ -1,9 +1,9 @@
 const orderRepository = require("../repositories/orderRepository");
 const axios = require("axios");
-const orderSaga = require("../saga/orderSaga");
+const { EVENTS, EXCHANGES, QUEUES } = require("../config/constants");
 
-const PRODUCT_INVENTORY_SERVICE_URI =
-   process.env.PRODUCT_INVENTORY_SERVICE_URI || "http://localhost:5001";
+const PRODUCT_CATALOG_SERVICE_URI =
+   process.env.PRODUCT_CATALOG_SERVICE_URI || "http://localhost:5000";
 
 class OrderService {
    /**
@@ -22,10 +22,10 @@ class OrderService {
          }
       }
 
-      // Bulk get products from product service to validate and calculate total
+      // Bulk get products from product-catalog service to validate and calculate total
       const productIds = items.map((item) => item.productId).join(",");
       const response = await axios.get(
-         `${PRODUCT_INVENTORY_SERVICE_URI}/api/product-inventory/bulk/get?ids=${productIds}`
+         `${PRODUCT_CATALOG_SERVICE_URI}/api/product-catalog/bulk/get?ids=${productIds}`
       );
       const products = response.data;
 
@@ -33,41 +33,40 @@ class OrderService {
          throw new Error("Some products not found");
       }
 
-      const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
+      const productMap = Object.fromEntries(products.map((p) => [p._id, p]));
 
       let totalAmount = 0;
       for (const item of items) {
          const product = productMap[item.productId];
          if (!product) throw new Error(`Product ${item.productId} not found`);
-         // Note: Stock validation will be done by inventory service in saga
          totalAmount += product.price * item.quantity;
       }
 
-      // Create order in DB with 'Pending' status
-      const order = await orderRepository.create({
-         userId,
-         items,
-         totalAmount,
-         status: "Pending",
-      });
-
-      // Publish OrderCreated event to start the saga
-      // This event will also trigger cart clearing in the cart service
-      try {
-         await orderSaga.publishOrderCreated(order);
-         console.log(`✓ Order ${order._id} created, saga initiated`);
-      } catch (err) {
-         // If saga fails to start, mark order as failed
-         await orderRepository.updateStatus(order._id, "Failed");
-         throw new Error(`Failed to initiate saga: ${err.message}`);
-      }
-
+      const order = await orderRepository.createWithOutbox(
+         {
+            userId,
+            items,
+            totalAmount,
+            status: "Processing",
+         },
+         {
+            aggregateType: "Order",
+            eventType: EVENTS.ORDER_PROCESSING,
+            payload: JSON.stringify({
+               userId,
+               items,
+               totalAmount,
+               status: "Processing",
+            }),
+         }
+      );
       return order;
    }
 
-   async getOrdersByUser(userId) {
+   async getOrdersByUser(userId, pagination = {}) {
       if (!userId) throw new Error("User ID is required");
-      return await orderRepository.findByUserId(userId);
+      const { page = 1, limit = 20 } = pagination;
+      return await orderRepository.findByUserId(userId, { page, limit });
    }
 
    async getOrderById(userId, orderId) {
@@ -80,7 +79,14 @@ class OrderService {
 
    async updateOrderStatus(orderId, status) {
       if (!orderId) throw new Error("Order ID is required");
-      return await orderRepository.updateStatus(orderId, status);
+      return await orderRepository.updateStatusWithOutbox(orderId, status, {
+         aggregateType: "Order",
+         eventType: "orders." + status.toLowerCase(),
+         payload: JSON.stringify({
+            orderId,
+            status,
+         }),
+      });
    }
 }
 

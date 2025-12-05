@@ -75,7 +75,7 @@ class CartEventHandler {
     * Handle order created event - clear the user's cart
     */
    async handleOrderCreated(event) {
-      const { orderId, userId } = event;
+      const { orderId, userId } = event.payload;
 
       try {
          console.log(

@@ -102,11 +102,13 @@ services:
       build: ./product-inventory
       environment:
          - POSTGRES_URI=postgres://postgres:postgres@products-inventory-pg:5432/postgres
+         - MONGO_URI=mongodb://mongo-inventory:27017/ecommerce-inventory
          - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
       networks:
          - ecommerce-network
       depends_on:
          - products-inventory-pg
+         - mongo-inventory
          - rabbitmq
       deploy:
          replicas: 4
@@ -261,8 +263,8 @@ services:
       # ports:
       # - 5003:5003
       environment:
-         - MONGO_URI=mongodb://mongo-orders:27017/ecommerce-orders
-         - PRODUCT_INVENTORY_SERVICE_URI=http://product-inventory-envoy:8080
+         - MONGO_URI=mongodb://mongo-orders:27017/ecommerce-orders?replicaSet=rs0
+         - PRODUCT_CATALOG_SERVICE_URI=http://product-catalog-envoy:8080
          - SHOPPING_CART_SERVICE_URI=http://cart-service-envoy:8080
          - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
          - PORT=5003
@@ -303,6 +305,104 @@ services:
             "--log-level",
             "info",
          ]
+
+   debezium-order-outbox-server:
+      image: quay.io/debezium/server:2.5
+      container_name: debezium-order-outbox-server
+      healthcheck:
+         test: curl http://debezium:8080/q/health || exit 1
+         interval: 5s
+         timeout: 5s
+         retries: 5
+      ports:
+         - "8090:8080"
+      volumes:
+         - ./debezium-server/order-outbox:/debezium/conf:readonly
+
+      networks:
+         - ecommerce-network
+      depends_on:
+         mongo-orders:
+            condition: service_healthy
+         rabbitmq:
+            condition: service_healthy
+      restart: unless-stopped
+      profiles:
+         - debezium
+
+   order-relay-publisher:
+      build: ./mongo-relay-publisher
+      container_name: order-relay-publisher
+      environment:
+         - SERVICE_NAME=order
+         - MONGO_URI=mongodb://mongo-orders:27017/ecommerce-orders?replicaSet=rs0
+         - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
+         - EXCHANGE_NAME=order_exchange
+         - POLL_INTERVAL_MS=500
+         - BATCH_SIZE=100
+      networks:
+         - ecommerce-network
+      depends_on:
+         mongo-orders:
+            condition: service_healthy
+         rabbitmq:
+            condition: service_healthy
+      restart: unless-stopped
+      deploy:
+         resources:
+            limits:
+               cpus: "0.5"
+               memory: 256mb
+
+   payment-relay-publisher:
+      build: ./mongo-relay-publisher
+      container_name: payment-relay-publisher
+      environment:
+         - SERVICE_NAME=payment
+         - MONGO_URI=mongodb://mongo-payments:27017/ecommerce-payments
+         - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
+         - EXCHANGE_NAME=payment_exchange
+         - POLL_INTERVAL_MS=500
+         - BATCH_SIZE=100
+      networks:
+         - ecommerce-network
+      depends_on:
+         mongo-payments:
+            condition: service_started
+         rabbitmq:
+            condition: service_healthy
+      restart: unless-stopped
+      deploy:
+         resources:
+            limits:
+               cpus: "0.5"
+               memory: 256mb
+
+   inventory-relay-publisher:
+      build: ./postgres-relay-publisher
+      container_name: inventory-relay-publisher
+      environment:
+         - SERVICE_NAME=inventory
+         - POSTGRES_URI=postgresql://postgres:postgres@products-inventory-pg:5432/postgres
+         - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
+         - EXCHANGE_NAME=inventory_exchange
+         - POLL_INTERVAL_MS=500
+         - BATCH_SIZE=100
+         - CLEANUP_INTERVAL_HOURS=12
+         - RETENTION_HOURS=24
+      networks:
+         - ecommerce-network
+      depends_on:
+         products-inventory-pg:
+            condition: service_started
+         rabbitmq:
+            condition: service_healthy
+      restart: unless-stopped
+      deploy:
+         resources:
+            limits:
+               cpus: "0.5"
+               memory: 256mb
 
    payment-service:
       build: ./payment-service
@@ -457,6 +557,13 @@ services:
          - mongo-orders-data:/data/db
       networks:
          - ecommerce-network
+      command: ["--replSet", "rs0", "--bind_ip_all"]
+      healthcheck:
+         test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet | grep -q 1
+         interval: 10s
+         timeout: 5s
+         retries: 5
+         start_period: 30s
       deploy:
          resources:
             limits:
@@ -469,6 +576,20 @@ services:
          - "27021:27017"
       volumes:
          - mongo-payments-data:/data/db
+      networks:
+         - ecommerce-network
+      deploy:
+         resources:
+            limits:
+               cpus: "0.5"
+               memory: 512M
+
+   mongo-inventory:
+      image: mongo:latest
+      ports:
+         - "27022:27017"
+      volumes:
+         - mongo-inventory-data:/data/db
       networks:
          - ecommerce-network
       deploy:
@@ -569,11 +690,13 @@ volumes:
    mongo-cart-data: {}
    mongo-orders-data: {}
    mongo-payments-data: {}
+   mongo-inventory-data: {}
    influxdb-data: {}
    grafana-data: {}
    rabbitmq-data: {}
    redis_data: {}
    product_inventory_pg: {}
+   debezium-data: {}
 networks:
    ecommerce-network:
       driver: bridge

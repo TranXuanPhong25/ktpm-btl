@@ -67,7 +67,7 @@ class ProductCacheService {
          return null;
       } catch (err) {
          if (err.message === "Cache timeout") {
-            console.warn(`⏱️ Cache GET timeout for ${key}`);
+            console.warn(`Cache GET timeout for ${key}`);
          } else {
             console.error(`Redis GET error for ${key}:`, err.message);
          }
@@ -92,7 +92,7 @@ class ProductCacheService {
          ]);
       } catch (err) {
          if (err.message === "Cache timeout") {
-            console.warn(`⏱️ Cache SET timeout for ${key}`);
+            console.warn(`Cache SET timeout for ${key}`);
          } else {
             console.error(`Redis SET error for ${key}:`, err.message);
          }

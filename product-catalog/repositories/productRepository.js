@@ -16,12 +16,28 @@ class ProductRepository {
    }
 
    /**
-    * Find all products
-    * @returns {Promise<Array>} List of products
+    * Find all products with pagination
+    * @param {Object} options - Pagination options
+    * @param {number} options.page - Page number (1-based)
+    * @param {number} options.limit - Items per page
+    * @returns {Promise<Object>} Paginated result with data and metadata
     */
-   async findAll() {
+   async findAll({ page = 1, limit = 20 } = {}) {
       try {
-         return await Product.find();
+         const skip = (page - 1) * limit;
+         const [products, total] = await Promise.all([
+            Product.find().skip(skip).limit(limit).sort({ createdAt: -1 }),
+            Product.countDocuments(),
+         ]);
+         return {
+            data: products,
+            pagination: {
+               page,
+               limit,
+               total,
+               totalPages: Math.ceil(total / limit),
+            },
+         };
       } catch (err) {
          throw new Error(`Failed to get all products: ${err.message}`);
       }
@@ -61,8 +77,8 @@ class ProductRepository {
     */
    async update(id, updateData) {
       try {
-         const { name, description, category } = updateData;
-         const validData = { name, description, category };
+         const { name, description, category, price } = updateData;
+         const validData = { name, description, category, price };
          return await Product.findByIdAndUpdate(id, validData, { new: true });
       } catch (err) {
          throw new Error(`Failed to update product ${id}: ${err.message}`);
@@ -83,13 +99,30 @@ class ProductRepository {
    }
 
    /**
-    * Find products by category
+    * Find products by category with pagination
     * @param {string} category - Product category
-    * @returns {Promise<Array>} List of products
+    * @param {Object} options - Pagination options
+    * @param {number} options.page - Page number (1-based)
+    * @param {number} options.limit - Items per page
+    * @returns {Promise<Object>} Paginated result with data and metadata
     */
-   async findByCategory(category) {
+   async findByCategory(category, { page = 1, limit = 20 } = {}) {
       try {
-         return await Product.find({ category });
+         const skip = (page - 1) * limit;
+         const query = { category };
+         const [products, total] = await Promise.all([
+            Product.find(query).skip(skip).limit(limit).sort({ createdAt: -1 }),
+            Product.countDocuments(query),
+         ]);
+         return {
+            data: products,
+            pagination: {
+               page,
+               limit,
+               total,
+               totalPages: Math.ceil(total / limit),
+            },
+         };
       } catch (err) {
          throw new Error(`Failed to get products by category: ${err.message}`);
       }

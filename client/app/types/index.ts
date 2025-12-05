@@ -41,6 +41,7 @@ export interface Order {
    totalAmount: number;
    status: "pending" | "confirmed" | "shipped" | "delivered" | "cancelled";
    createdAt?: string;
+   reason?: string;
 }
 
 export interface Payment {
