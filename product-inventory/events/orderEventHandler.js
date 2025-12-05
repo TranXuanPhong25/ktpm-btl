@@ -106,7 +106,8 @@ class OrderEventHandler {
                   error.message
                );
             }
-         }
+         },
+         true
       );
    }
 
@@ -134,12 +135,11 @@ class OrderEventHandler {
             id: item.productId,
             quantity: item.quantity,
          }));
-         console.log(updates);
          const outboxData = {
             aggregateId,
             aggregateType: "Inventory",
             eventType: EVENTS.INVENTORY_RESERVED,
-            payload: JSON.stringify({ userId }),
+            payload: { userId },
             status: "PENDING",
          };
          await productService.bulkDeductStockWithOutbox(updates, outboxData);
@@ -180,16 +180,21 @@ class OrderEventHandler {
       }
 
       try {
+         const restoredProducts = [];
          for (const item of items) {
-            await productService.addStock(item.productId, item.quantity);
+            const updatedProduct = await productService.addStock(
+               item.productId,
+               item.quantity
+            );
+            restoredProducts.push(updatedProduct);
          }
 
          await outboxService.createOutboxEntry({
             aggregateId,
             aggregateType: "Inventory",
             eventType: EVENTS.INVENTORY_RESTORED,
-            payload: {},
-            status: "PROCESSED",
+            payload: { restoredProducts },
+            status: "PENDING",
          });
       } catch (error) {
          console.error(

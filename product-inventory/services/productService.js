@@ -152,23 +152,6 @@ class ProductService {
       return updatedProduct;
    }
 
-   async bulkDeductStock(updates) {
-      if (!Array.isArray(updates) || updates.length === 0) {
-         throw new Error("updates must be a non-empty array");
-      }
-
-      for (const { id, quantity } of updates) {
-         if (!id) throw new Error("Product ID is required in updates");
-         if (!quantity || quantity <= 0) {
-            throw new Error(
-               `Invalid quantity for product ${id}. Must be greater than 0`
-            );
-         }
-      }
-
-      return await productRepository.bulkDeductStock(updates);
-   }
-
    async bulkDeductStockWithOutbox(updates, outboxData) {
       if (!Array.isArray(updates) || updates.length === 0) {
          throw new Error("updates must be a non-empty array");
@@ -211,7 +194,7 @@ class ProductService {
             map[product.id.toString()] = product;
             return map;
          }, {});
-
+         let updateProducts = [];
          // Validate stock availability
          for (const { id, quantity } of uniqueUpdates) {
             const product = productMap[id];
@@ -223,6 +206,10 @@ class ProductService {
                   `Insufficient stock for product ID: ${id}. Available: ${product.stock}, Requested: ${quantity}`
                );
             }
+            updateProducts.push({
+               id,
+               stock: product.stock - quantity,
+            });
          }
 
          // Deduct stock
@@ -230,8 +217,11 @@ class ProductService {
             uniqueUpdates,
             tx
          );
-
          // Create outbox entry
+         outboxData.payload = JSON.stringify({
+            ...outboxData.payload,
+            products: updateProducts,
+         });
          const outboxEntry = await outboxService.createOutboxEntry(
             outboxData,
             tx
@@ -281,15 +271,6 @@ class ProductService {
          availableStock: product.stock,
          isAvailable: product.stock >= quantity,
       };
-   }
-
-   /**
-    * Get low stock products
-    * @param {number} threshold - Stock threshold (default: 10)
-    * @returns {Promise<Array>} List of low stock products
-    */
-   async getLowStockProducts(threshold = 10) {
-      return await productRepository.findLowStock(threshold);
    }
 }
 

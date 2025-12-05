@@ -147,18 +147,6 @@ class ProductRepository {
       }
    }
 
-   async findLowStock(threshold) {
-      try {
-         return await Product.findAll({
-            where: {
-               stock: { [Op.lte]: threshold },
-            },
-         });
-      } catch (err) {
-         throw new Error(`Failed to get low stock products: ${err.message}`);
-      }
-   }
-
    async addStock(id, quantity) {
       try {
          const [affectedRowsArray] = await Product.increment(
