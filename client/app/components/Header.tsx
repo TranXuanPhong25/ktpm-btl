@@ -42,6 +42,12 @@ export function Header() {
                            >
                               Payments
                            </Link>
+                           <Link
+                              to="/admin/products"
+                              className="text-black font-bold uppercase text-sm hover:underline"
+                           >
+                              Admin Products
+                           </Link>
                         </>
                      )}
                   </nav>

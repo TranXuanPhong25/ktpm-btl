@@ -80,8 +80,6 @@ export default function CartPage() {
    const clearCart = async () => {
       if (!user) return;
 
-      if (!confirm("Are you sure you want to clear your cart?")) return;
-
       try {
          await apiClient.clearCart(user._id);
          await loadCart();
@@ -103,7 +101,7 @@ export default function CartPage() {
          };
 
          const order = await apiClient.createOrder(user._id, orderData);
-         await apiClient.clearCart(user._id);
+         // Cart will be cleared by backend cart service after receiving order success event
 
          toast.success("Order placed successfully!");
          navigate("/orders");

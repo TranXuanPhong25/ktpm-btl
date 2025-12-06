@@ -131,47 +131,6 @@ export default function Payments() {
                </p>
             </div>
 
-            {/* Filters */}
-            <div className="card-brutal bg-white p-6 mb-6">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                     <label className="block text-sm font-black text-black mb-2 uppercase">
-                        Status
-                     </label>
-                     <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="w-full px-4 py-3 border-brutal bg-white font-bold focus:outline-none"
-                     >
-                        <option value="">All Statuses</option>
-                        <option value="pending">Pending</option>
-                        <option value="completed">Completed</option>
-                        <option value="success">Success</option>
-                        <option value="failed">Failed</option>
-                        <option value="processing">Processing</option>
-                        <option value="refunded">Refunded</option>
-                     </select>
-                  </div>
-                  <div>
-                     <label className="block text-sm font-black text-black mb-2 uppercase">
-                        Payment Method
-                     </label>
-                     <select
-                        value={paymentMethodFilter}
-                        onChange={(e) => setPaymentMethodFilter(e.target.value)}
-                        className="w-full px-4 py-3 border-brutal bg-white font-bold focus:outline-none"
-                     >
-                        <option value="">All Methods</option>
-                        <option value="credit_card">Credit Card</option>
-                        <option value="card">Card</option>
-                        <option value="paypal">PayPal</option>
-                        <option value="bank_transfer">Bank Transfer</option>
-                        <option value="cash">Cash</option>
-                     </select>
-                  </div>
-               </div>
-            </div>
-
             {/* Payment Statistics */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                <div className="card-brutal bg-white p-4">

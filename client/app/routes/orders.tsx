@@ -167,11 +167,13 @@ export default function Orders() {
                                  )}
                            </div>
                            <div className="flex items-center gap-3">
-                              <span
-                                 className={`px-3 py-1 text-xs font-black uppercase ${getStatusColor(order.status)}`}
-                              >
-                                 {order.status}
-                              </span>
+                              {order.status.toLowerCase() != "created" && (
+                                 <span
+                                    className={`px-3 py-1 text-xs font-black uppercase ${getStatusColor(order.status)}`}
+                                 >
+                                    {order.status}
+                                 </span>
+                              )}
                               {order.status.toLowerCase() === "created" && (
                                  <button
                                     onClick={() =>

@@ -11,7 +11,9 @@ export interface Product {
    description: string;
    price: number;
    category: string;
-   stock: number;
+   inventory: {
+      stock: number | undefined;
+   };
    createdAt?: string;
 }
 

@@ -121,22 +121,28 @@ export default function Products() {
                               <span className="text-2xl font-black text-black">
                                  ${product.price.toFixed(2)}
                               </span>
-                              <span
-                                 className={`text-xs font-bold px-2 py-1 ${product.stock > 0 ? "bg-white border-2 border-black text-black" : "bg-black text-white"}`}
-                              >
-                                 {product.stock > 0
-                                    ? `${product.stock} in stock`
-                                    : "SOLD OUT"}
-                              </span>
+                              {product.inventory.stock !== undefined ? (
+                                 <span
+                                    className={`text-xs font-bold px-2 py-1 ${product.inventory.stock > 0 ? "bg-white border-2 border-black text-black" : "bg-black text-white"}`}
+                                 >
+                                    {product.inventory.stock > 0
+                                       ? `${product.inventory.stock} in stock`
+                                       : "SOLD OUT"}
+                                 </span>
+                              ) : (
+                                 <span className="text-xs font-bold px-2 py-1 bg-white border-2 border-black text-black">
+                                    Unavailable
+                                 </span>
+                              )}
                            </div>
                            <button
                               onClick={() =>
                                  addToCart(product._id, product.name)
                               }
-                              disabled={product.stock === 0}
+                              disabled={product.inventory.stock === 0}
                               className="w-full btn-brutal bg-black text-white disabled:bg-gray-300 disabled:cursor-not-allowed disabled:text-gray-500"
                            >
-                              {product.stock === 0
+                              {product.inventory.stock === 0
                                  ? "Out of Stock"
                                  : "Add to Cart"}
                            </button>
