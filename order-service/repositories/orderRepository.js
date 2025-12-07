@@ -106,6 +106,78 @@ class OrderRepository {
          throw new Error(`Failed to update order status: ${err.message}`);
       }
    }
+
+   /**
+    * Atomically update order status only if current status matches expected status
+    * Returns the updated order if successful, null otherwise
+    */
+   async updateStatusIfCurrentStatusIs(
+      orderId,
+      currentStatus,
+      newStatus,
+      outboxData
+   ) {
+      const session = await mongoose.startSession();
+      session.startTransaction();
+      try {
+         // Check idempotency first
+         const existingEvent = await Outbox.findOne({
+            aggregateId: String(orderId),
+            eventType: outboxData.eventType,
+         }).session(session);
+
+         if (existingEvent) {
+            console.log(
+               `⚠️ Event ${outboxData.eventType} already exists for order: ${orderId}, skipping`
+            );
+            await session.abortTransaction();
+            return { skipped: true };
+         }
+
+         // ATOMIC UPDATE: Find AND Update in one go with condition
+         // Using regex for case-insensitive status check if needed, but strict string match is safer for state machine
+         const order = await Order.findOneAndUpdate(
+            {
+               _id: orderId,
+               status: currentStatus, // CRITICAL: The condition
+            },
+            { status: newStatus },
+            { new: true, session }
+         );
+
+         if (!order) {
+            // Update failed because document not found OR status didn't match
+            await session.abortTransaction();
+            return null;
+         }
+
+         // Create outbox record
+         const outboxPayload = {
+            ...outboxData.payload,
+            userId: order.userId,
+            items: order.items,
+            totalAmount: order.totalAmount,
+            status: newStatus,
+            timestamp: new Date().toISOString(),
+         };
+
+         const outbox = new Outbox({
+            ...outboxData,
+            payload: JSON.stringify(outboxPayload),
+            aggregateId: String(orderId),
+         });
+         await outbox.save({ session });
+
+         await session.commitTransaction();
+         return order;
+      } catch (err) {
+         await session.abortTransaction();
+         throw new Error(`Failed to atomic update order: ${err.message}`);
+      } finally {
+         session.endSession();
+      }
+   }
+
    async updateStatusWithOutbox(orderId, status, outboxData) {
       const session = await mongoose.startSession();
       session.startTransaction();

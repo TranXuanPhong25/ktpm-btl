@@ -70,20 +70,20 @@ router.get("/:userId/:orderId", async (req, res) => {
    }
 });
 
-// Update order status
-router.put("/:orderId/status", async (req, res) => {
-   const { orderId } = req.params;
-   const { status } = req.body;
+// // Update order status
+// router.put("/:orderId/status", async (req, res) => {
+//    const { orderId } = req.params;
+//    const { status } = req.body;
 
-   try {
-      const order = await orderService.updateOrderStatus(orderId, status);
-      res.json(order);
-   } catch (err) {
-      if (err.message === "Order not found") {
-         return res.status(404).json({ msg: err.message });
-      }
-      res.status(500).json({ msg: err.message });
-   }
-});
+//    try {
+//       const order = await orderService.updateOrderStatus(orderId, status);
+//       res.json(order);
+//    } catch (err) {
+//       if (err.message === "Order not found") {
+//          return res.status(404).json({ msg: err.message });
+//       }
+//       res.status(500).json({ msg: err.message });
+//    }
+// });
 
 module.exports = router;
