@@ -1,5 +1,5 @@
 const { DataTypes } = require("sequelize");
-const database = require("../config/database");
+const database = require("./database");
 
 const sequelize = database.getConnection();
 

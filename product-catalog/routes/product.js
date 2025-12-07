@@ -7,6 +7,18 @@ const router = express.Router();
 // Create Product
 router.post("/", async (req, res) => {
    try {
+      const requiredFields = [
+         "name",
+         "description",
+         "category",
+         "price",
+         "stock",
+      ];
+      for (const field of requiredFields) {
+         if (!req.body[field]) {
+            throw new Error(`${field} is required`);
+         }
+      }
       const newProduct = await productService.createProduct(req.body);
       return res.status(201).json(newProduct);
    } catch (err) {
@@ -39,7 +51,12 @@ router.get("/", async (req, res) => {
 // Get Product by ID
 router.get("/:id", async (req, res) => {
    try {
-      const product = await productCacheService.getProductById(req.params.id);
+      const productId = req.params.id;
+      if (!productId) {
+         throw new Error("Product ID is required");
+      }
+
+      const product = await productCacheService.getProductById(productId);
       return res.json(product);
    } catch (err) {
       if (err.message === "Product not found") {

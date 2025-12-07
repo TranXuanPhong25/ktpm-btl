@@ -1,5 +1,8 @@
 const productRepository = require("../repositories/productRepository");
-
+const outboxRepository = require("../repositories/outboxRepository");
+const mongoose = require("mongoose");
+const productCacheService = require("./productCacheService");
+const inventoryRepository = require("../repositories/inventoryRepository");
 class ProductService {
    /**
     * Create a new product with validation
@@ -7,20 +10,16 @@ class ProductService {
     * @returns {Promise<Object>} Created product
     */
    async createProduct(productData) {
-      const { _id, name, description, category, price } = productData;
+      const { _id, name, description, category, price, stock } = productData;
 
       // Validation
-      if (!name || !description || !category) {
-         throw new Error(
-            "Missing required fields: name, description, category"
-         );
-      }
-
       if (price === undefined || price <= 0) {
          throw new Error("Price must be greater than 0");
       }
-
-      // Create product through repository
+      if (stock === undefined || stock < 0) {
+         throw new Error("Stock cannot be negative");
+      }
+      // Create product through repository with transaction
       const createData = {
          name,
          description,
@@ -33,77 +32,120 @@ class ProductService {
          createData._id = _id;
       }
 
-      return await productRepository.create(createData);
+      // Start transaction session
+      const session = await mongoose.startSession();
+      session.startTransaction();
+
+      try {
+         const product = await productRepository.create(createData, session);
+
+         // Create outbox event
+         await outboxRepository.create(
+            {
+               aggregateId: product._id.toString(),
+               aggregateType: "Product",
+               eventType: "product.created",
+               payload: {
+                  id: product._id.toString(),
+                  name: product.name,
+                  description: product.description,
+                  category: product.category,
+                  price: product.price,
+                  stock: stock,
+               },
+               status: "PENDING",
+            },
+            session
+         );
+
+         await session.commitTransaction();
+         return product;
+      } catch (error) {
+         await session.abortTransaction();
+         throw error;
+      } finally {
+         session.endSession();
+      }
    }
 
-   /**
-    * Get all products with pagination
-    * @param {Object} filters - Optional filters (category)
-    * @param {Object} pagination - Pagination options (page, limit)
-    * @returns {Promise<Object>} Paginated result with data and metadata
-    */
-   async getAllProducts(filters = {}, pagination = {}) {
-      const { page = 1, limit = 20 } = pagination;
-      if (filters.category) {
-         return await productRepository.findByCategory(filters.category, {
-            page,
-            limit,
-         });
-      }
-      return await productRepository.findAll({ page, limit });
+   async getAllProducts(filters = {}, pagable = {}) {
+      const { page = 1, limit = 20 } = pagable;
+      // if (filters.category) {
+      //    return await productRepository.findByCategory(filters.category, {
+      //       page,
+      //       limit,
+      //    });
+      // }
+
+      const { data, pagination } = await productRepository.findAll({
+         page,
+         limit,
+      });
+      const productIds = data.map((p) => p.id);
+      const inventories =
+         await inventoryRepository.findByProductIds(productIds);
+      const inventoriesMap = new Map(
+         inventories.map((inv) => [inv.productId.toString(), inv])
+      );
+
+      return {
+         pagination,
+         data: data.map((product) => {
+            const inventory = inventoriesMap.get(product.id.toString());
+            return {
+               name: product.name,
+               description: product.description,
+               category: product.category,
+               price: product.price,
+               _id: product._id,
+               createdAt: product.createdAt,
+               inventory: {
+                  stock: inventory ? inventory.stock : undefined,
+               },
+            };
+         }),
+      };
    }
 
-   /**
-    * Get product by ID
-    * @param {string} productId - Product ID
-    * @returns {Promise<Object>} Product
-    */
-   async getProductById(productId) {
-      if (!productId) {
-         throw new Error("Product ID is required");
-      }
-
-      const product = await productRepository.findById(productId);
-      if (!product) {
-         throw new Error("Product not found");
-      }
-
-      return product;
-   }
-
-   /**
-    * Get multiple products by their IDs
-    * @param {Array<string>} productIds - List of product IDs
-    * @returns {Promise<Array<Object>>} List of found products
-    */
-   async getProductsByIds(productIds) {
+   async getProductsByIds(productIds, needInventory = true) {
       if (!Array.isArray(productIds) || productIds.length === 0) {
          throw new Error(
             "Product IDs are required and must be a non-empty array"
          );
       }
-
       const products = await productRepository.findManyByIds(productIds);
-
-      if (!products || products.length === 0) {
-         throw new Error("No products found");
+      if (!needInventory) {
+         return products;
       }
-
-      return products;
+      const foundIds = products.map((p) => p.id);
+      const inventories = await inventoryRepository.findByProductIds(foundIds);
+      const inventoriesMap = new Map(
+         inventories.map((inv) => [inv.productId.toString(), inv.stock])
+      );
+      return products.map((product) => {
+         const inventory = inventoriesMap.get(product._id.toString());
+         return {
+            ...product.toObject(),
+            inventory: {
+               stock: inventory,
+            },
+         };
+      });
    }
 
-   /**
-    * Update product with validation
-    * @param {string} productId - Product ID
-    * @param {Object} updateData - Data to update
-    * @returns {Promise<Object>} Updated product
-    */
    async updateProduct(productId, updateData) {
       if (!productId) {
          throw new Error("Product ID is required");
       }
 
       const { name, description, category, price } = updateData;
+
+      const requiredFields = ["name", "description", "category", "price"];
+      for (const field of requiredFields) {
+         if (updateData[field] === undefined) {
+            throw new Error(`${field} is required`);
+         }
+      }
 
       // Validation
       if (price !== undefined && price <= 0) {
@@ -123,13 +165,20 @@ class ProductService {
          category,
          price,
       });
-
+      // Invalidate cache in background
+      productCacheService.invalidateProduct(productId).catch((err) => {
+         console.error(
+            `Failed to invalidate cache for product ${productId}:`,
+            err.message
+         );
+      });
       return updatedProduct;
    }
 
    /**
-    * Delete product
-    * @param {string} productId - Product ID
+    * Delete a product
+    * @param {string} productId - Product ID to delete
+    * @param {number} stock - Stock quantity (optional, defaults to 0)
     * @returns {Promise<Object>} Deleted product
     */
    async deleteProduct(productId) {
@@ -137,12 +186,45 @@ class ProductService {
          throw new Error("Product ID is required");
       }
 
-      const product = await productRepository.delete(productId);
-      if (!product) {
-         throw new Error("Product not found");
-      }
+      // Start transaction session
+      const session = await mongoose.startSession();
+      session.startTransaction();
 
-      return product;
+      try {
+         const product = await productRepository.delete(productId, session);
+         if (!product) {
+            throw new Error("Product not found");
+         }
+
+         // Create outbox event
+         await outboxRepository.create(
+            {
+               aggregateId: product._id.toString(),
+               aggregateType: "Product",
+               eventType: "product.deleted",
+               payload: {
+                  id: product._id.toString(),
+               },
+               status: "PENDING",
+            },
+            session
+         );
+
+         await session.commitTransaction();
+         // Invalidate cache in background
+         productCacheService.invalidateProduct(productId).catch((err) => {
+            console.error(
+               `Failed to invalidate cache for product ${productId}:`,
+               err.message
+            );
+         });
+         return product;
+      } catch (error) {
+         await session.abortTransaction();
+         throw error;
+      } finally {
+         session.endSession();
+      }
    }
 
    /**

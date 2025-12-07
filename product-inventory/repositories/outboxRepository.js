@@ -1,4 +1,4 @@
-const database = require("../config/database");
+const database = require("../models/database");
 const Outbox = require("../models/outbox");
 
 const sequelize = database.getConnection();

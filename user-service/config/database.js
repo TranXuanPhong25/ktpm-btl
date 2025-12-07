@@ -12,12 +12,7 @@ class Database {
             return this.connection;
          }
 
-         const options = {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-         };
-
-         this.connection = await mongoose.connect(mongoURI, options);
+         this.connection = await mongoose.connect(mongoURI);
          console.log("User Service is Connected to MongoDB");
          return this.connection;
       } catch (err) {

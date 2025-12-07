@@ -1,4 +1,4 @@
-const database = require("../config/database");
+const database = require("../models/database");
 
 const sequelize = database.getConnection();
 

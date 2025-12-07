@@ -1,28 +1,7 @@
 const RabbitMQConnection = require("../messaging/rabbitmq");
 const productService = require("../services/productService");
 const outboxService = require("../services/outboxService");
-
-const EVENTS = {
-   ORDER_CREATED: "order.created",
-   ORDER_PROCESSING: "order.processing",
-   INVENTORY_RESERVED: "inventory.reserved",
-   INVENTORY_RESTORED: "inventory.restored",
-   INVENTORY_FAILED: "inventory.failed",
-   ORDER_FAILED: "order.failed",
-};
-
-const EXCHANGES = {
-   ORDER: "order_exchange",
-   INVENTORY: "inventory_exchange",
-};
-
-const QUEUES = {
-   // Dedicated queue for receiving Order Created events from Order Service
-   ORDER_TO_INVENTORY: "order.to.inventory.queue",
-   // Dedicated queue for receiving Order Failed events for compensation
-   ORDER_TO_INVENTORY_COMPENSATION: "order.to.inventory.compensation.queue",
-};
-
+const { EXCHANGES, QUEUES, EVENTS } = require("../messaging/constants");
 class OrderEventHandler {
    constructor() {
       this.rabbitMQ = new RabbitMQConnection();
@@ -71,10 +50,6 @@ class OrderEventHandler {
 
    async startListening() {
       await this.rabbitMQ.consume(QUEUES.ORDER_TO_INVENTORY, async (event) => {
-         console.log(
-            `📥 [Inventory] Received from Order Service: ${event.eventType}`
-         );
-
          try {
             if (event.eventType === EVENTS.ORDER_CREATED) {
                console.log(
@@ -93,9 +68,6 @@ class OrderEventHandler {
       await this.rabbitMQ.consume(
          QUEUES.ORDER_TO_INVENTORY_COMPENSATION,
          async (event) => {
-            console.log(
-               `📥 [Inventory] Received compensation request: ${event.eventType}`
-            );
             try {
                if (event.eventType === EVENTS.ORDER_FAILED) {
                   await this.handleOrderFailed(event);
@@ -114,10 +86,6 @@ class OrderEventHandler {
    async handleOrderProcessing(event) {
       const { aggregateId, payload } = event;
       const { items, userId } = payload;
-      console.log(event);
-      console.log(
-         `🔄 Processing inventory reservation for order: ${aggregateId}`
-      );
 
       const existingEvent = await outboxService.findOutboxEntry({
          aggregateId: aggregateId,
@@ -133,16 +101,9 @@ class OrderEventHandler {
       try {
          const updates = items.map((item) => ({
             id: item.productId,
-            quantity: item.quantity,
+            quantity: -item.quantity,
          }));
-         const outboxData = {
-            aggregateId,
-            aggregateType: "Inventory",
-            eventType: EVENTS.INVENTORY_RESERVED,
-            payload: { userId },
-            status: "PENDING",
-         };
-         await productService.bulkDeductStockWithOutbox(updates, outboxData);
+         await productService.bulkUpdateStockWithOutbox(updates, aggregateId);
       } catch (error) {
          await outboxService.createOutboxEntry({
             aggregateId: aggregateId,
@@ -163,9 +124,6 @@ class OrderEventHandler {
    async handleOrderFailed(event) {
       const { aggregateId, payload } = event;
       const { items } = payload;
-      console.log(
-         `🔄 Processing inventory restoration for order: ${aggregateId}`
-      );
 
       const existingRestoration = await outboxService.findOutboxEntry({
          aggregateId: aggregateId,
@@ -180,22 +138,12 @@ class OrderEventHandler {
       }
 
       try {
-         const restoredProducts = [];
-         for (const item of items) {
-            const updatedProduct = await productService.addStock(
-               item.productId,
-               item.quantity
-            );
-            restoredProducts.push(updatedProduct);
-         }
-
-         await outboxService.createOutboxEntry({
-            aggregateId,
-            aggregateType: "Inventory",
-            eventType: EVENTS.INVENTORY_RESTORED,
-            payload: { restoredProducts },
-            status: "PENDING",
-         });
+         const updates = items.map((item) => ({
+            id: item.productId,
+            quantity: Math.abs(item.quantity), // ensure positive quantity for restoration
+            name: item.name,
+         }));
+         await productService.bulkUpdateStockWithOutbox(updates, aggregateId);
       } catch (error) {
          console.error(
             `✗ Inventory restoration failed for order: ${aggregateId}. Reason: ${error.message}`

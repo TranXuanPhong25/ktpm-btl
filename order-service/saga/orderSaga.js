@@ -1,7 +1,7 @@
 const RabbitMQConnection = require("../messaging/rabbitmq");
 const orderRepository = require("../repositories/orderRepository");
 const Outbox = require("../models/outbox");
-const { EVENTS, EXCHANGES, QUEUES } = require("../config/constants");
+const { EVENTS, EXCHANGES, QUEUES } = require("../messaging/constants");
 class OrderSaga {
    constructor() {
       this.rabbitMQ = new RabbitMQConnection();
@@ -159,28 +159,29 @@ class OrderSaga {
       };
 
       // Write to outbox instead of direct publish
-      await Outbox.create({
-         aggregateId: orderId,
-         aggregateType: "Order",
-         eventType: EVENTS.ORDER_FAILED,
-         payload: JSON.stringify(event),
-      });
+      await Outbox.create(
+         {
+            aggregateId: orderId,
+            aggregateType: "Order",
+            eventType: EVENTS.ORDER_FAILED,
+            payload: JSON.stringify(event),
+         },
+         session
+      );
    }
 
-   /**
-    * Start listening to inventory and payment events
-    */
    async startListening() {
-      // Listen to Inventory Service responses
       await this.rabbitMQ.consume(QUEUES.INVENTORY_TO_ORDER, async (event) => {
-         console.log(
-            `📥 [Order Saga] Received from Inventory: ${event.eventType}`
-         );
          try {
-            if (event.eventType === EVENTS.INVENTORY_RESERVED) {
-               await this.handleInventoryReserved(event);
-            } else if (event.eventType === EVENTS.INVENTORY_FAILED) {
-               await this.handleInventoryFailed(event);
+            switch (event.eventType) {
+               case EVENTS.INVENTORY_RESERVED:
+                  await this.handleInventoryReserved(event);
+                  break;
+               case EVENTS.INVENTORY_FAILED:
+                  await this.handleInventoryFailed(event);
+                  break;
+               default:
+                  break;
             }
          } catch (error) {
             console.error("Error handling inventory event:", error.message);
@@ -188,16 +189,17 @@ class OrderSaga {
          }
       });
 
-      // Listen to Payment Service responses
       await this.rabbitMQ.consume(QUEUES.PAYMENT_TO_ORDER, async (event) => {
-         console.log(
-            `📥 [Order Saga] Received from Payment: ${event.eventType}`
-         );
          try {
-            if (event.eventType === EVENTS.PAYMENT_SUCCEEDED) {
-               await this.handlePaymentSucceeded(event);
-            } else if (event.eventType === EVENTS.PAYMENT_FAILED) {
-               await this.handlePaymentFailed(event);
+            switch (event.eventType) {
+               case EVENTS.PAYMENT_SUCCEEDED:
+                  await this.handlePaymentSucceeded(event);
+                  break;
+               case EVENTS.PAYMENT_FAILED:
+                  await this.handlePaymentFailed(event);
+                  break;
+               default:
+                  break;
             }
          } catch (error) {
             console.error("Error handling payment event:", error.message);
@@ -208,8 +210,6 @@ class OrderSaga {
 
    async handleInventoryReserved(event) {
       const { aggregateId: orderId } = event;
-      console.log(event);
-      // Fetch current order to check status
       let order;
       try {
          order = await orderRepository.findById(orderId);
@@ -230,7 +230,18 @@ class OrderSaga {
 
       if (currentStatus === "processing") {
          // Order is processing (reservation succeeded first), update to Created
-         await orderRepository.updateStatus(orderId, "Created");
+         await orderRepository.updateStatusWithOutbox(orderId, "Created", {
+            aggregateType: "Order",
+            eventType: EVENTS.ORDER_CREATED,
+            payload: {
+               orderId,
+               userId: order.userId,
+               items: order.items,
+               totalAmount: order.totalAmount,
+               status: "Created",
+               timestamp: new Date().toISOString(),
+            },
+         });
          console.log(
             `📦 Inventory reserved for order ${orderId}, status was 'Processing' -> 'Created'`
          );
@@ -261,7 +272,7 @@ class OrderSaga {
                userId: order.userId,
                items: order.items,
                totalAmount: order.totalAmount,
-               status: "Failed",
+               status: "FAILED",
                reason:
                   "Inventory reservation failed after payment - refund issued",
                timestamp: new Date().toISOString(),
@@ -289,7 +300,6 @@ class OrderSaga {
       } catch (err) {
          console.error(`Failed to fetch order ${orderId}:`, err.message);
       }
-
       const currentStatus =
          order && order.status ? String(order.status).toLowerCase() : null;
 
@@ -319,7 +329,7 @@ class OrderSaga {
             userId: order ? order.userId : null,
             items: order ? order.items : [],
             totalAmount: order ? order.totalAmount : 0,
-            status: "Failed",
+            status: "FAILED",
             reason,
             timestamp: new Date().toISOString(),
          },
@@ -341,7 +351,7 @@ class OrderSaga {
             eventType: EVENTS.ORDER_FAILED,
             payload: {
                orderId,
-               status: "Failed",
+               status: "FAILED",
                reason,
                timestamp: new Date().toISOString(),
             },

@@ -22,12 +22,20 @@ class ProductService {
       }
 
       // Create product
-      const product = await productRepository.create({
-         id,
-         stock,
-      });
 
-      return product;
+      await transaction.execute(async (tx) => {
+         // Create outbox event
+         const product = await productRepository.create({ id, stock }, tx);
+         await outboxService.createOutboxEntry(
+            {
+               aggregateId: product.id.toString(),
+               aggregateType: "Product",
+               eventType: "stock.updated",
+               payload: [{ id: product.id, stock: product.stock }],
+            },
+            tx
+         );
+      });
    }
 
    /**
@@ -80,38 +88,6 @@ class ProductService {
    }
 
    /**
-    * Update product with validation
-    * @param {string} productId - Product ID
-    * @param {Object} updateData - Data to update
-    * @returns {Promise<Object>} Updated product
-    */
-   async updateProduct(productId, updateData) {
-      if (!productId) {
-         throw new Error("Product ID is required");
-      }
-
-      const { stock } = updateData;
-
-      // Validation
-      if (stock !== undefined && stock < 0) {
-         throw new Error("Stock cannot be negative");
-      }
-
-      // Check if product exists
-      const existingProduct = await productRepository.findById(productId);
-      if (!existingProduct) {
-         throw new Error("Product not found");
-      }
-
-      // Update product
-      const updatedProduct = await productRepository.update(productId, {
-         stock,
-      });
-
-      return updatedProduct;
-   }
-
-   /**
     * Delete product
     * @param {string} productId - Product ID
     * @returns {Promise<Object>} Deleted product
@@ -121,65 +97,43 @@ class ProductService {
          throw new Error("Product ID is required");
       }
 
-      const product = await productRepository.delete(productId);
-      if (!product) {
-         throw new Error("Product not found");
-      }
-
-      return product;
+      await transaction.execute(async (tx) => {
+         const product = await productRepository.delete(productId, tx);
+         if (!product) {
+            throw new Error("Product not found");
+         }
+         await outboxService.createOutboxEntry(
+            {
+               aggregateId: product.id.toString(),
+               aggregateType: "Product",
+               eventType: "stock.updated",
+               payload: [{ id: product.id, stock: -1 }],
+            },
+            tx
+         );
+      });
    }
-
    /**
-    * Deduct stock from product with business logic
-    * @param {string} productId - Product ID
-    * @param {number} quantity - Quantity to deduct
-    * @returns {Promise<Object>} Updated product
+    * Bulk update stock for multiple products with outbox entry
+    * @param {Array<{id: string, quantity: number, name: string}>} updates - List of product stock updates
+    * @param {string|null} orderId - Associated order ID for inventory operations (optional)
+    * @returns {Promise<Object>} Result with updated products
     */
-   async deductStock(productId, quantity) {
-      if (!productId) {
-         throw new Error("Product ID is required");
-      }
-
-      if (!quantity || quantity <= 0) {
-         throw new Error("Quantity must be greater than 0");
-      }
-
-      const updatedProduct = await productRepository.deductStock(
-         productId,
-         quantity
-      );
-
-      return updatedProduct;
-   }
-
-   async bulkDeductStockWithOutbox(updates, outboxData) {
+   async bulkUpdateStockWithOutbox(updates, orderId = null) {
       if (!Array.isArray(updates) || updates.length === 0) {
          throw new Error("updates must be a non-empty array");
       }
 
-      if (!outboxData || !outboxData.eventType || !outboxData.payload) {
-         throw new Error("outboxData must contain eventType and payload");
-      }
-
-      for (const { id, quantity } of updates) {
+      for (const { id, quantity, name } of updates) {
          if (!id) throw new Error("Product ID is required in updates");
-         if (!quantity || quantity <= 0) {
+         if (!orderId && (!quantity || quantity <= 0)) {
             throw new Error(
-               `Invalid quantity for product ${id}. Must be greater than 0`
+               `Invalid quantity for product ${name}. Must be greater than 0`
             );
          }
       }
-
       return await transaction.execute(async (tx) => {
-         // Aggregate updates by product ID
-         const aggregatedUpdates = updates.reduce((acc, { id, quantity }) => {
-            acc[id] = (acc[id] || 0) + Number(quantity);
-            return acc;
-         }, {});
-         const uniqueUpdates = Object.entries(aggregatedUpdates).map(
-            ([id, quantity]) => ({ id, quantity })
-         );
-         const ids = uniqueUpdates.map((update) => update.id);
+         const ids = updates.map((update) => update.id);
 
          // Lock and fetch products
          const withLock = true;
@@ -195,82 +149,50 @@ class ProductService {
             return map;
          }, {});
          let updateProducts = [];
-         // Validate stock availability
-         for (const { id, quantity } of uniqueUpdates) {
+
+         for (const { id, quantity } of updates) {
             const product = productMap[id];
             if (!product) {
                throw new Error(`Product with ID ${id} not found`);
             }
-            if (product.stock < quantity) {
+
+            // Only validate negative stock for deduct operations
+            if (orderId && quantity < 0 && product.stock < Math.abs(quantity)) {
                throw new Error(
-                  `Insufficient stock for product ID: ${id}. Available: ${product.stock}, Requested: ${quantity}`
+                  `Insufficient stock for product ID: ${id}. Available: ${product.stock}, Requested: ${Math.abs(quantity)}`
                );
             }
+
+            const newStock = orderId ? product.stock + quantity : quantity;
+
             updateProducts.push({
                id,
-               stock: product.stock - quantity,
+               stock: newStock,
             });
          }
 
-         // Deduct stock
-         await productRepository.bulkDeductStockInTransaction(
-            uniqueUpdates,
-            tx
-         );
-         // Create outbox entry
-         outboxData.payload = JSON.stringify({
-            ...outboxData.payload,
-            products: updateProducts,
-         });
-         const outboxEntry = await outboxService.createOutboxEntry(
-            outboxData,
-            tx
-         );
+         // Update stock (add or deduct)
+         const updatedProducts =
+            await productRepository.bulkUpdateStockInTransaction(updates, tx);
+         let eventType = "stock.updated";
+         let aggregateId = ids.join(",");
+         if (orderId) {
+            eventType =
+               updates[0].quantity < 0
+                  ? "inventory.reserved"
+                  : "inventory.restored";
+            aggregateId = orderId;
+         }
+         const stockUpdateOutbox = {
+            aggregateId: aggregateId,
+            aggregateType: "Inventory",
+            eventType,
+            payload: updateProducts,
+         };
+         await outboxService.createOutboxEntry(stockUpdateOutbox, tx);
 
-         const updatedProducts = await productRepository.findManyByIds(ids);
-         return { products: updatedProducts, outbox: outboxEntry };
+         return { products: updatedProducts };
       });
-   }
-
-   /**
-    * Add stock to product
-    * @param {string} productId - Product ID
-    * @param {number} quantity - Quantity to add
-    * @returns {Promise<Object>} Updated product
-    */
-   async addStock(productId, quantity) {
-      if (!productId) {
-         throw new Error("Product ID is required");
-      }
-      if (!quantity || quantity <= 0) {
-         throw new Error("Quantity must be greater than 0");
-      }
-
-      return await productRepository.addStock(productId, quantity);
-   }
-
-   /**
-    * Check product availability
-    * @param {string} productId - Product ID
-    * @param {number} quantity - Required quantity
-    * @returns {Promise<Object>} Availability info
-    */
-   async checkAvailability(productId, quantity) {
-      if (!productId) {
-         throw new Error("Product ID is required");
-      }
-
-      const product = await productRepository.findById(productId);
-      if (!product) {
-         throw new Error("Product not found");
-      }
-
-      return {
-         productId: product.id,
-         requestedQuantity: quantity,
-         availableStock: product.stock,
-         isAvailable: product.stock >= quantity,
-      };
    }
 }
 

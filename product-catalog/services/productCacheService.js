@@ -1,15 +1,10 @@
 const redis = require("../config/redis");
 const productRepository = require("../repositories/productRepository");
-
+const inventoryRepository = require("../repositories/inventoryRepository");
 const DEFAULT_EXPIRATION = 60 * 5; // 5 minutes
 const CACHE_TIMEOUT = 500; // 500ms max for cache operations
 
 class ProductCacheService {
-   /**
-    * Get product by ID using cache-aside strategy with timeout protection
-    * @param {string} productId - Product ID
-    * @returns {Promise<Object>} Product
-    */
    async getProductById(productId) {
       if (!productId) {
          throw new Error("Product ID is required");
@@ -34,8 +29,15 @@ class ProductCacheService {
       this._setCache(key, product).catch((err) => {
          console.error(`Background cache set failed for ${key}:`, err.message);
       });
+      const inventory = // this line may be throw an exception?
+         await inventoryRepository.findByProductIds([productId]);
 
-      return product;
+      return {
+         ...product,
+         inventory: {
+            stock: inventory.length > 0 ? inventory[0].stock : undefined,
+         },
+      };
    }
 
    /**
@@ -121,82 +123,82 @@ class ProductCacheService {
       }
    }
 
-   /**
-    * Get multiple products with cache support
-    * @param {Array<string>} productIds - Array of product IDs
-    * @returns {Promise<Array<Object>>} Products
-    */
-   async getProductsByIds(productIds) {
-      if (!Array.isArray(productIds) || productIds.length === 0) {
-         return [];
-      }
+   // /**
+   //  * Get multiple products with cache support
+   //  * @param {Array<string>} productIds - Array of product IDs
+   //  * @returns {Promise<Array<Object>>} Products
+   //  */
+   // async getProductsByIds(productIds) {
+   //    if (!Array.isArray(productIds) || productIds.length === 0) {
+   //       return [];
+   //    }
 
-      // Try to get all from cache first
-      const keys = productIds.map((id) => `product:${id}`);
-      let cachedProducts = [];
+   //    // Try to get all from cache first
+   //    const keys = productIds.map((id) => `product:${id}`);
+   //    let cachedProducts = [];
 
-      try {
-         const cached = await Promise.race([
-            redis.mget(keys),
-            new Promise((_, reject) =>
-               setTimeout(
-                  () => reject(new Error("Cache timeout")),
-                  CACHE_TIMEOUT
-               )
-            ),
-         ]);
+   //    try {
+   //       const cached = await Promise.race([
+   //          redis.mget(keys),
+   //          new Promise((_, reject) =>
+   //             setTimeout(
+   //                () => reject(new Error("Cache timeout")),
+   //                CACHE_TIMEOUT
+   //             )
+   //          ),
+   //       ]);
 
-         cachedProducts = cached.map((item, index) => {
-            if (item) {
-               try {
-                  return {
-                     id: productIds[index],
-                     data: JSON.parse(item),
-                     cached: true,
-                  };
-               } catch (e) {
-                  return { id: productIds[index], data: null, cached: false };
-               }
-            }
-            return { id: productIds[index], data: null, cached: false };
-         });
-      } catch (err) {
-         console.warn("Cache MGET failed, falling back to DB:", err.message);
-         cachedProducts = productIds.map((id) => ({
-            id,
-            data: null,
-            cached: false,
-         }));
-      }
+   //       cachedProducts = cached.map((item, index) => {
+   //          if (item) {
+   //             try {
+   //                return {
+   //                   id: productIds[index],
+   //                   data: JSON.parse(item),
+   //                   cached: true,
+   //                };
+   //             } catch (e) {
+   //                return { id: productIds[index], data: null, cached: false };
+   //             }
+   //          }
+   //          return { id: productIds[index], data: null, cached: false };
+   //       });
+   //    } catch (err) {
+   //       console.warn("Cache MGET failed, falling back to DB:", err.message);
+   //       cachedProducts = productIds.map((id) => ({
+   //          id,
+   //          data: null,
+   //          cached: false,
+   //       }));
+   //    }
 
-      // Get missing products from DB
-      const missingIds = cachedProducts
-         .filter((item) => !item.cached)
-         .map((item) => item.id);
+   //    // Get missing products from DB
+   //    const missingIds = cachedProducts
+   //       .filter((item) => !item.cached)
+   //       .map((item) => item.id);
 
-      let dbProducts = [];
-      if (missingIds.length > 0) {
-         dbProducts = await productRepository.findByIds(missingIds);
+   //    let dbProducts = [];
+   //    if (missingIds.length > 0) {
+   //       dbProducts = await productRepository.findByIds(missingIds);
 
-         // Cache the fetched products in background
-         dbProducts.forEach((product) => {
-            const key = `product:${product._id}`;
-            this._setCache(key, product).catch(() => {});
-         });
-      }
+   //       // Cache the fetched products in background
+   //       dbProducts.forEach((product) => {
+   //          const key = `product:${product._id}`;
+   //          this._setCache(key, product).catch(() => {});
+   //       });
+   //    }
 
-      // Merge cached and DB results
-      const productMap = new Map(dbProducts.map((p) => [p._id.toString(), p]));
+   //    // Merge cached and DB results
+   //    const productMap = new Map(dbProducts.map((p) => [p._id.toString(), p]));
 
-      return cachedProducts
-         .map((item) => {
-            if (item.cached && item.data) {
-               return item.data;
-            }
-            return productMap.get(item.id);
-         })
-         .filter(Boolean);
-   }
+   //    return cachedProducts
+   //       .map((item) => {
+   //          if (item.cached && item.data) {
+   //             return item.data;
+   //          }
+   //          return productMap.get(item.id);
+   //       })
+   //       .filter(Boolean);
+   // }
 
    /**
     * Check Redis connection health

@@ -3,7 +3,8 @@ const sendEmail = require("../services/emailService");
 
 // Event types
 const EVENTS = {
-   ORDER_SUCCESSFUL: "order.placed",
+   ORDER_CREATED: "order.created",
+   ORDER_PLACED: "order.placed",
    ORDER_FAILED: "order.failed",
 };
 
@@ -35,7 +36,12 @@ class OrderEventHandler {
          await this.rabbitMQ.bindQueue(
             QUEUES.ORDER_TO_NOTIFICATION,
             EXCHANGES.ORDER,
-            EVENTS.ORDER_SUCCESSFUL
+            EVENTS.ORDER_PLACED
+         );
+         await this.rabbitMQ.bindQueue(
+            QUEUES.ORDER_TO_NOTIFICATION,
+            EXCHANGES.ORDER,
+            EVENTS.ORDER_CREATED
          );
          await this.rabbitMQ.bindQueue(
             QUEUES.ORDER_TO_NOTIFICATION,
@@ -63,15 +69,13 @@ class OrderEventHandler {
       await this.rabbitMQ.consume(
          QUEUES.ORDER_TO_NOTIFICATION,
          async (event) => {
-            console.log(
-               `📥 [Notification] Received from Order Service: ${event.eventType}`
-            );
-
             try {
-               if (event.eventType === EVENTS.ORDER_SUCCESSFUL) {
+               if (event.eventType === EVENTS.ORDER_PLACED) {
                   await this.handleOrderSuccessful(event);
                } else if (event.eventType === EVENTS.ORDER_FAILED) {
                   await this.handleOrderFailed(event);
+               } else if (event.eventType === EVENTS.ORDER_CREATED) {
+                  await this.handleOrderCreated(event);
                }
             } catch (error) {
                console.error("Error handling event:", error.message);
@@ -83,8 +87,6 @@ class OrderEventHandler {
 
    async handleOrderPlaced(event) {
       const { orderId, userId, items } = event.payload;
-
-      console.log(`✓ Sending order success notification for order: ${orderId}`);
 
       try {
          // In a real scenario, you would fetch user email from user service
@@ -100,20 +102,20 @@ class OrderEventHandler {
 
          const subject = `Order Confirmation - Order #${orderId}`;
          const text = `
-Dear Customer,
+            Dear Customer,
 
-Your order has been successfully placed and confirmed!
+            Your order has been successfully placed and confirmed!
 
-Order ID: ${orderId}
-Items:
-${itemList}
+            Order ID: ${orderId}
+            Items:
+            ${itemList}
 
-Your order is now being processed and will be shipped soon.
+            Your order is now being processed and will be shipped soon.
 
-Thank you for your purchase!
+            Thank you for your purchase!
 
-Best regards,
-E-Commerce Team
+            Best regards,
+            E-Commerce Team
          `.trim();
 
          await sendEmail(userEmail, subject, text);
@@ -124,14 +126,52 @@ E-Commerce Team
             `Failed to send notification for order ${orderId}:`,
             error.message
          );
-         // Don't throw - notification failure shouldn't break the saga
       }
    }
 
+   async handleOrderCreated(event) {
+      const { orderId, userId, items } = event.payload;
+
+      try {
+         // In a real scenario, you would fetch user email from user service
+         // For now, we'll use a placeholder
+         const userEmail = "vipboyhoid69@gmail.com";
+
+         const itemList = items
+            .map(
+               (item) =>
+                  `- Product ID: ${item.productId}, Quantity: ${item.quantity}`
+            )
+            .join("\n");
+
+         const subject = `Order Confirmation - Order #${orderId}`;
+         const text = `
+            Dear Customer,
+
+            Your order has been successfully created!
+
+            Order ID: ${orderId}
+            Items:
+            ${itemList}
+
+            Please proceed to checkout to complete your purchase.
+
+            Thank you for shopping with us!
+
+            Best regards,
+            E-Commerce Team
+         `.trim();
+
+         await sendEmail(userEmail, subject, text);
+      } catch (error) {
+         console.error(
+            `Failed to send notification for order ${orderId}:`,
+            error.message
+         );
+      }
+   }
    async handleOrderFailed(event) {
       const { orderId, userId, reason } = event.payload;
-
-      console.log(`✗ Sending order failure notification for order: ${orderId}`);
 
       try {
          // In a real scenario, you would fetch user email from user service
@@ -139,28 +179,25 @@ E-Commerce Team
 
          const subject = `Order Failed - Order #${orderId}`;
          const text = `
-Dear Customer,
+            Dear Customer,
 
-We regret to inform you that your order could not be processed.
+            We regret to inform you that your order could not be processed.
 
-Order ID: ${orderId}
-Reason: ${reason}
+            Order ID: ${orderId}
+            Reason: ${reason}
 
-Please try again or contact our support team for assistance.
+            Please try again or contact our support team for assistance.
 
-Best regards,
-E-Commerce Team
+            Best regards,
+            E-Commerce Team
          `.trim();
 
          await sendEmail(userEmail, subject, text);
-
-         console.log(`✓ Order failure notification sent for order: ${orderId}`);
       } catch (error) {
          console.error(
             `Failed to send failure notification for order ${orderId}:`,
             error.message
          );
-         // Don't throw - notification failure shouldn't break the saga
       }
    }
 

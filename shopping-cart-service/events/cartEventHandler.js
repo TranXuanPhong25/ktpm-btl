@@ -12,7 +12,7 @@ const EXCHANGES = {
 };
 
 const QUEUES = {
-   // Dedicated queue for receiving Order Created events from Order Service
+   // Dedicated queue for receiving Order Processing events from Order Service
    ORDER_TO_CART: "order.to.cart.queue",
 };
 
@@ -56,10 +56,6 @@ class CartEventHandler {
     */
    async startListening() {
       await this.rabbitMQ.consume(QUEUES.ORDER_TO_CART, async (event) => {
-         console.log(
-            `📥 [Cart] Received from Order Service: ${event.eventType}`
-         );
-
          try {
             if (event.eventType === EVENTS.ORDER_CREATED) {
                await this.handleOrderCreated(event);
@@ -78,13 +74,7 @@ class CartEventHandler {
       const { orderId, userId } = event.payload;
 
       try {
-         console.log(
-            `🛒 Clearing cart for user ${userId} after order ${orderId} creation`
-         );
-
          await cartRepository.clearItems(userId);
-
-         console.log(`✓ Cart cleared successfully for user ${userId}`);
       } catch (error) {
          console.error(
             `Failed to clear cart for user ${userId}:`,

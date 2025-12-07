@@ -3,6 +3,8 @@ const mongoose = require("mongoose");
 const orderItemSchema = new mongoose.Schema({
    productId: { type: String, required: true },
    quantity: { type: Number, required: true },
+   name: { type: String, required: true },
+   category: { type: String, required: true },
 });
 
 const orderSchema = new mongoose.Schema(

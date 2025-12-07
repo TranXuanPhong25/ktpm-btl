@@ -30,6 +30,7 @@ module.exports = {
       quotes: ["error", "double", { avoidEscape: true }],
       //  "comma-dangle": ["error", "always-multiline"],
       "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+      "no-undef": "error",
       "no-console": "off",
    },
    ignorePatterns: [

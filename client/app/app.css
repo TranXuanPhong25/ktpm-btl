@@ -2,8 +2,9 @@
 
 @theme {
    --font-sans:
-      "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
-      "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+      "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif,
+      "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+      "Noto Color Emoji";
 
    /* Minimal Black & White */
    --color-nb-black: #000000;

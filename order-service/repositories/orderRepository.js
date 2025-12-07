@@ -54,7 +54,11 @@ class OrderRepository {
          const skip = (page - 1) * limit;
          const query = { userId };
          const [orders, total] = await Promise.all([
-            Order.find(query).skip(skip).limit(limit).sort({ createdAt: -1 }),
+            Order.find(query)
+               .skip(skip)
+               .limit(limit)
+               .sort({ createdAt: -1 })
+               .lean(),
             Order.countDocuments(query),
          ]);
          return {
@@ -83,7 +87,7 @@ class OrderRepository {
 
    async findByUserIdAndId(userId, orderId) {
       try {
-         return await Order.findOne({ userId, _id: orderId });
+         return await Order.findOne({ userId, _id: orderId }).lean();
       } catch (err) {
          throw new Error(
             `Failed to get order ${orderId} for user ${userId}: ${err.message}`

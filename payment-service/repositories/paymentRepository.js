@@ -191,6 +191,19 @@ class PaymentRepository {
          throw new Error(`Failed to calculate total amount: ${err.message}`);
       }
    }
+   async findByOrderIdAndStatus(orderId, status) {
+      try {
+         return await Payment.findOne({
+            orderId,
+            status,
+            paymentDate: { $ne: null },
+         }).sort({ paymentDate: -1 }); // mới nhất
+      } catch (err) {
+         throw new Error(
+            `Failed to get payment for order ${orderId} with status ${status}: ${err.message}`
+         );
+      }
+   }
 }
 
 module.exports = new PaymentRepository();

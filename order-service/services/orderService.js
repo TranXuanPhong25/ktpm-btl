@@ -1,6 +1,6 @@
 const orderRepository = require("../repositories/orderRepository");
 const axios = require("axios");
-const { EVENTS, EXCHANGES, QUEUES } = require("../config/constants");
+const { EVENTS } = require("../messaging/constants");
 
 const PRODUCT_CATALOG_SERVICE_URI =
    process.env.PRODUCT_CATALOG_SERVICE_URI || "http://localhost:5000";
@@ -39,24 +39,32 @@ class OrderService {
       for (const item of items) {
          const product = productMap[item.productId];
          if (!product) throw new Error(`Product ${item.productId} not found`);
+         if (product.inventory && product.inventory.stock < item.quantity) {
+            throw new Error(`Insufficient stock for product ${item.productId}`);
+         }
          totalAmount += product.price * item.quantity;
       }
-
+      const informativeItems = items.map((item) => ({
+         productId: item.productId,
+         quantity: productMap[item.productId].quantity,
+         name: productMap[item.productId].name,
+         price: productMap[item.productId].price,
+      }));
       const order = await orderRepository.createWithOutbox(
          {
             userId,
-            items,
+            items: informativeItems,
             totalAmount,
-            status: "Processing",
+            status: "PROCESSING",
          },
          {
             aggregateType: "Order",
             eventType: EVENTS.ORDER_PROCESSING,
             payload: JSON.stringify({
                userId,
-               items,
+               items: informativeItems,
                totalAmount,
-               status: "Processing",
+               status: "PENDING",
             }),
          }
       );
@@ -81,11 +89,12 @@ class OrderService {
       if (!orderId) throw new Error("Order ID is required");
       return await orderRepository.updateStatusWithOutbox(orderId, status, {
          aggregateType: "Order",
-         eventType: "orders." + status.toLowerCase(),
+         eventType: "order." + status.toLowerCase(),
          payload: JSON.stringify({
             orderId,
             status,
          }),
+         status: "PENDING",
       });
    }
 }

@@ -27,8 +27,6 @@ database
       console.log("Waiting for RabbitMQ to be ready...");
       await wait(5000);
 
-      // Initialize Order Event Handler
-
       app.listen(PORT, () => {
          console.log(`Product Catalog is running on port ${PORT}`);
       });

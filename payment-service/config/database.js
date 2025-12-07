@@ -7,17 +7,7 @@ class Database {
 
    async connect(mongoURI) {
       try {
-         if (this.connection) {
-            console.log("Using existing MongoDB connection");
-            return this.connection;
-         }
-
-         const options = {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-         };
-
-         this.connection = await mongoose.connect(mongoURI, options);
+         this.connection = await mongoose.connect(mongoURI);
          console.log("Payment Service is Connected to MongoDB");
          return this.connection;
       } catch (err) {
@@ -35,10 +25,6 @@ class Database {
          this.connection = null;
          console.log("Disconnected from MongoDB");
       }
-   }
-
-   getConnection() {
-      return this.connection;
    }
 }
 

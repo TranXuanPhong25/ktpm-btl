@@ -308,6 +308,16 @@ class PaymentService {
             throw new Error("Payment gateway declined the transaction");
          }
 
+         const succeededOrderCheckout =
+            await paymentRepository.findByOrderIdAndStatus(
+               orderId,
+               "succeeded"
+            );
+         if (succeededOrderCheckout) {
+            throw new Error(
+               "Payment for this order has already been processed"
+            );
+         }
          // Create payment record
          const payment = await paymentRepository.create({
             orderId,

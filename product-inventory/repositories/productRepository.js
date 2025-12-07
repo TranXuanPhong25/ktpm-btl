@@ -1,7 +1,6 @@
 const { Op } = require("sequelize");
 const Product = require("../models/product");
-const database = require("../config/database");
-const outboxRepository = require("./outboxRepository");
+const database = require("../models/database");
 
 const sequelize = database.getConnection();
 
@@ -10,10 +9,9 @@ if (!sequelize) {
 }
 
 class ProductRepository {
-   async create(productData) {
+   async create(productData, transaction = null) {
       try {
-         console.log("Creating product:", typeof productData.id);
-         return await Product.create(productData);
+         return await Product.create(productData, { transaction });
       } catch (err) {
          throw new Error(`Failed to create product: ${err.message}`);
       }
@@ -53,13 +51,16 @@ class ProductRepository {
 
    async findManyByIds(productIds, withLock = false, transaction = null) {
       try {
-         return await Product.findAll({
+         const clause = {
             where: {
                id: { [Op.in]: productIds },
             },
-            lock: withLock ? transaction.LOCK.UPDATE : undefined,
-            transaction: transaction,
-         });
+         };
+         if (withLock) {
+            clause.lock = transaction.LOCK.UPDATE;
+            clause.transaction = transaction;
+         }
+         return await Product.findAll(clause);
       } catch (err) {
          throw new Error(`Failed to get products: ${err.message}`);
       }
@@ -124,13 +125,12 @@ class ProductRepository {
       }
    }
 
-   async bulkDeductStockInTransaction(updates, transaction) {
-      await Promise.all(
+   async bulkUpdateStockInTransaction(updates, transaction) {
+      return await Promise.all(
          updates.map(({ id, quantity }) =>
             Product.increment(
-               { stock: -quantity },
-               { where: { id: id }, transaction: transaction },
-               { new: true }
+               { stock: quantity },
+               { where: { id: id }, transaction: transaction, returning: true }
             )
          )
       );
@@ -144,28 +144,6 @@ class ProductRepository {
          throw new Error(
             `Failed to check stock for product ${id}: ${err.message}`
          );
-      }
-   }
-
-   async addStock(id, quantity) {
-      try {
-         const [affectedRowsArray] = await Product.increment(
-            { stock: quantity },
-            {
-               where: { id: id },
-               returning: true,
-            }
-         );
-
-         const updatedProducts = affectedRowsArray[0];
-
-         if (!updatedProducts || updatedProducts.length === 0) {
-            throw new Error("Product not found");
-         }
-
-         return updatedProducts[0];
-      } catch (err) {
-         throw new Error(err.message);
       }
    }
 }

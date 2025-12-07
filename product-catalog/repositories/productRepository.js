@@ -1,27 +1,18 @@
 const Product = require("../models/product");
 
 class ProductRepository {
-   /**
-    * Create a new product
-    * @param {Object} productData - Product data
-    * @returns {Promise<Object>} Created product
-    */
-   async create(productData) {
+   async create(productData, session = null) {
       try {
          const newProduct = new Product(productData);
+         if (session) {
+            return await newProduct.save({ session });
+         }
          return await newProduct.save();
       } catch (err) {
          throw new Error(`Failed to create product: ${err.message}`);
       }
    }
 
-   /**
-    * Find all products with pagination
-    * @param {Object} options - Pagination options
-    * @param {number} options.page - Page number (1-based)
-    * @param {number} options.limit - Items per page
-    * @returns {Promise<Object>} Paginated result with data and metadata
-    */
    async findAll({ page = 1, limit = 20 } = {}) {
       try {
          const skip = (page - 1) * limit;
@@ -43,11 +34,6 @@ class ProductRepository {
       }
    }
 
-   /**
-    * Find product by ID
-    * @param {string} id - Product ID
-    * @returns {Promise<Object|null>} Product or null
-    */
    async findById(id) {
       try {
          return await Product.findById(id);
@@ -56,11 +42,6 @@ class ProductRepository {
       }
    }
 
-   /**
-    * Find multiple products by their IDs
-    * @param {Array<string>} productIds - List of product IDs
-    * @returns {Promise<Array<Object>>} List of found products
-    */
    async findManyByIds(productIds) {
       try {
          return await Product.find({ _id: { $in: productIds } });
@@ -69,12 +50,6 @@ class ProductRepository {
       }
    }
 
-   /**
-    * Update product by ID
-    * @param {string} id - Product ID
-    * @param {Object} updateData - Data to update
-    * @returns {Promise<Object|null>} Updated product or null
-    */
    async update(id, updateData) {
       try {
          const { name, description, category, price } = updateData;
@@ -85,27 +60,17 @@ class ProductRepository {
       }
    }
 
-   /**
-    * Delete product by ID
-    * @param {string} id - Product ID
-    * @returns {Promise<Object|null>} Deleted product or null
-    */
-   async delete(id) {
+   async delete(id, session = null) {
       try {
+         if (session) {
+            return await Product.findByIdAndDelete(id).session(session);
+         }
          return await Product.findByIdAndDelete(id);
       } catch (err) {
          throw new Error(`Failed to delete product ${id}: ${err.message}`);
       }
    }
 
-   /**
-    * Find products by category with pagination
-    * @param {string} category - Product category
-    * @param {Object} options - Pagination options
-    * @param {number} options.page - Page number (1-based)
-    * @param {number} options.limit - Items per page
-    * @returns {Promise<Object>} Paginated result with data and metadata
-    */
    async findByCategory(category, { page = 1, limit = 20 } = {}) {
       try {
          const skip = (page - 1) * limit;

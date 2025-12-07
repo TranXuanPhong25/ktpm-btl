@@ -1,5 +1,6 @@
 const RabbitMQConnection = require("../messaging/rabbitmq");
 const Outbox = require("../models/outbox");
+const outboxRepository = require("../repositories/outboxRepository");
 
 // Event types
 const EVENTS = {
@@ -55,7 +56,7 @@ class PaymentEventHandler {
          return;
       }
 
-      const event = {
+      const payload = {
          orderId,
          userId,
          amount,
@@ -67,11 +68,11 @@ class PaymentEventHandler {
          `📤 Writing PaymentSucceeded event to outbox for order: ${orderId}`
       );
 
-      await Outbox.create({
+      await outboxRepository.createOutboxEntry({
          aggregateId: orderId,
          aggregateType: "Payment",
          eventType: EVENTS.PAYMENT_SUCCEEDED,
-         payload: JSON.stringify(event),
+         payload,
       });
    }
 
