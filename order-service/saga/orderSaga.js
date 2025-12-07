@@ -216,14 +216,14 @@ class OrderSaga {
          const updatedOrder =
             await orderRepository.updateStatusIfCurrentStatusIs(
                orderId,
-               "Processing", // Expected current status
-               "Created", // New status
+               "PROCESSING", // Expected current status
+               "CREATED", // New status
                {
                   aggregateType: "Order",
                   eventType: EVENTS.ORDER_CREATED,
                   payload: {
                      orderId,
-                     status: "Created",
+                     status: "CREATED",
                      // Note: userId, items, totalAmount will be filled by repository from the DB document
                   },
                }
@@ -240,9 +240,9 @@ class OrderSaga {
          // If update failed, it means status was NOT 'Processing' (or order missing)
          // We fetch just for logging purposes to understand what happened
          const currentOrder = await orderRepository.findById(orderId);
-         const currentStatus = currentOrder?.status;
+         const currentStatus = currentOrder?.status?.toUpperCase();
 
-         if (currentStatus === "Placed") {
+         if (currentStatus === "PLACED") {
             console.log(
                `📦 Inventory reserved for order ${orderId}, but status is already 'Placed' - ignoring (Race condition handled)`
             );
