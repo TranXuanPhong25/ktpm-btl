@@ -201,7 +201,9 @@ export default function Orders() {
                                     className="flex justify-between text-sm font-bold bg-gray-100 border-2 border-black p-3"
                                  >
                                     <span className="text-black">
-                                       Product {item.productId.slice(-8)} ×{" "}
+                                       {item.name ||
+                                          `Product ${item.productId.slice(-8)}`}
+                                       {" × "}
                                        {item.quantity}
                                     </span>
                                     {item.price && (
