@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <jmeterTestPlan version="1.2" properties="4.0" jmeter="4.0 r1823414">
   <hashTree>
-    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Product Service POST Test Plan" enabled="true">
-      <stringProp name="TestPlan.comments">Test Product Service POST (Create Products)</stringProp>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Order Service POST Test Plan" enabled="true">
+      <stringProp name="TestPlan.comments">Test Order Service POST (Create Orders)</stringProp>
       <boolProp name="TestPlan.functional_mode">false</boolProp>
       <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp>
       <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
@@ -12,51 +12,87 @@
       <stringProp name="TestPlan.user_define_classpath"></stringProp>
     </TestPlan>
     <hashTree>
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Product Service POST Thread Group" enabled="true">
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Order Service POST Thread Group" enabled="true">
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
         <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
           <boolProp name="LoopController.continue_forever">false</boolProp>
           <intProp name="LoopController.loops">-1</intProp>
         </elementProp>
-        <stringProp name="ThreadGroup.num_threads">1000</stringProp>
-        <stringProp name="ThreadGroup.ramp_time">5</stringProp>
+        <stringProp name="ThreadGroup.num_threads">750</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">10</stringProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
         <stringProp name="ThreadGroup.duration">120</stringProp>
         <stringProp name="ThreadGroup.delay"></stringProp>
       </ThreadGroup>
       <hashTree>
-        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST Create Product" enabled="true">
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST Create Order" enabled="true">
           <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
           <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
                 <stringProp name="Argument.value">{
-  "name": "Product ${__Random(1,1000000)}",
-  "description": "Test product created by JMeter load test",
-  "price": ${__Random(10,1000)},
-  "stock": ${__Random(1,500)},
-  "category": "${__RandomString(10,abcdefghijklmnopqrstuvwxyz)}"
+  "items": [
+    {
+      "productId": "${productId1}",
+      "quantity": ${__Random(1,2)}
+    },
+    {
+      "productId": "${productId2}",
+      "quantity": ${__Random(1,2)}
+    }
+  ],
+  "totalAmount": ${__Random(50,500)}
 }</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
           </elementProp>
           <stringProp name="HTTPSampler.domain">localhost</stringProp>
-          <stringProp name="HTTPSampler.port">5001</stringProp>
+          <stringProp name="HTTPSampler.port">5003</stringProp>
           <stringProp name="HTTPSampler.protocol">http</stringProp>
           <stringProp name="HTTPSampler.contentEncoding"></stringProp>
-          <stringProp name="HTTPSampler.path">/api/products</stringProp>
+          <stringProp name="HTTPSampler.path">/api/orders/68fae6ce6ca6a62e451fac3a</stringProp>
           <stringProp name="HTTPSampler.method">POST</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
-          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">false</boolProp>
           <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
           <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
           <stringProp name="HTTPSampler.connect_timeout"></stringProp>
           <stringProp name="HTTPSampler.response_timeout"></stringProp>
         </HTTPSamplerProxy>
         <hashTree>
+          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Generate Random ObjectIds" enabled="true">
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="script">// Generate userId with real prefix
+String userPrefix = "68f1f642023c5a0cd694";
+String userSuffix = "";
+Random rand = new Random();
+for(int i = 0; i &lt; 4; i++) {
+    userSuffix += Integer.toHexString(rand.nextInt(16));
+}
+vars.put("userId", userPrefix + userSuffix);
+
+// Generate productId1
+String productPrefix = "68f1f642023c5a0cd694";
+String productSuffix1 = "";
+for(int i = 0; i &lt; 4; i++) {
+    productSuffix1 += Integer.toHexString(rand.nextInt(16));
+}
+vars.put("productId1", productPrefix + productSuffix1);
+
+// Generate productId2
+String productSuffix2 = "";
+for(int i = 0; i &lt; 4; i++) {
+    productSuffix2 += Integer.toHexString(rand.nextInt(16));
+}
+vars.put("productId2", productPrefix + productSuffix2);</stringProp>
+            <stringProp name="scriptLanguage">groovy</stringProp>
+          </JSR223PreProcessor>
+          <hashTree/>
           <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
             <collectionProp name="HeaderManager.headers">
               <elementProp name="" elementType="Header">
@@ -66,6 +102,10 @@
               <elementProp name="" elementType="Header">
                 <stringProp name="Header.name">Accept</stringProp>
                 <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Authorization</stringProp>
+                <stringProp name="Header.value">Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OGZhZTZjZTZjYTZhNjJlNDUxZmFjM2EiLCJpYXQiOjE3NjM1NTE4OTEsImV4cCI6MTc2MzU1NTQ5MX0.wJKs9D_o8_gDVMwsRufBV9vd0Th38UjQTjxDix0TysE</stringProp>
               </elementProp>
             </collectionProp>
           </HeaderManager>
@@ -115,7 +155,7 @@
               <connectTime>true</connectTime>
             </value>
           </objProp>
-          <stringProp name="filename">product-service-post-results.jtl</stringProp>
+          <stringProp name="filename">order-service-post-results.jtl</stringProp>
         </ResultCollector>
         <hashTree/>
       </hashTree>

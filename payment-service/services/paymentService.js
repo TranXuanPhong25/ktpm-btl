@@ -94,20 +94,26 @@ class PaymentService {
    }
 
    /**
-    * Get all payments
+    * Get all payments with pagination
     * @param {Object} filters - Optional filters (status, paymentMethod)
-    * @returns {Promise<Array>} List of payments
+    * @param {Object} pagination - Pagination options (page, limit)
+    * @returns {Promise<Object>} Paginated result with data and metadata
     */
-   async getAllPayments(filters = {}) {
+   async getAllPayments(filters = {}, pagination = {}) {
+      const { page = 1, limit = 20 } = pagination;
       if (filters.status) {
-         return await paymentRepository.findByStatus(filters.status);
+         return await paymentRepository.findByStatus(filters.status, {
+            page,
+            limit,
+         });
       }
       if (filters.paymentMethod) {
          return await paymentRepository.findByPaymentMethod(
-            filters.paymentMethod
+            filters.paymentMethod,
+            { page, limit }
          );
       }
-      return await paymentRepository.findAll();
+      return await paymentRepository.findAll({ page, limit });
    }
 
    /**
@@ -172,14 +178,7 @@ class PaymentService {
       }
 
       try {
-         // Process refund via Stripe if payment has stripePaymentIntentId
-         if (payment.stripePaymentIntentId) {
-            await stripe.refunds.create({
-               payment_intent: payment.stripePaymentIntentId,
-               amount: Math.round(refundAmount * 100), // Convert to cents
-            });
-         }
-
+         console.log("Refunded payment:", paymentId, "Amount:", refundAmount);
          // Update payment status
          return await paymentRepository.updateStatus(paymentId, "refunded");
       } catch (err) {
@@ -294,21 +293,37 @@ class PaymentService {
          throw new Error("Amount must be greater than 0");
       }
 
+      const paymentMethod = [
+         "Credit Card",
+         "Card",
+         "Bank Transfer",
+         "PayPal",
+         "Cash",
+      ][Math.floor(Math.random() * 5)];
       try {
          // Simulate payment processing
          // In production, this would call actual payment gateway
          const simulateSuccess = Math.random() > 0.8; // 90% success rate
-
          if (!simulateSuccess) {
             throw new Error("Payment gateway declined the transaction");
          }
 
+         const succeededOrderCheckout =
+            await paymentRepository.findByOrderIdAndStatus(
+               orderId,
+               "succeeded"
+            );
+         if (succeededOrderCheckout) {
+            throw new Error(
+               "Payment for this order has already been processed"
+            );
+         }
          // Create payment record
          const payment = await paymentRepository.create({
             orderId,
             amount,
             status: "succeeded",
-            paymentMethod: "simulated",
+            paymentMethod,
             metadata: {
                userId,
                processedAt: new Date().toISOString(),
@@ -328,19 +343,13 @@ class PaymentService {
             orderId,
             amount,
             status: "failed",
-            paymentMethod: "simulated",
+            paymentMethod,
             errorMessage: err.message,
             metadata: {
                userId,
                failedAt: new Date().toISOString(),
             },
          });
-         await paymentEventHandler.publishPaymentFailed(
-            orderId,
-            userId,
-            err.message,
-            []
-         );
 
          throw new Error(`Payment processing failed: ${err.message}`);
       }

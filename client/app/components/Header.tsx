@@ -5,17 +5,20 @@ export function Header() {
    const { user, logout } = useAuth();
 
    return (
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white border-brutal border-b-[5px] border-b-black sticky top-0 z-50">
          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
-               <div className="flex items-center">
-                  <Link to="/" className="text-xl font-bold text-blue-600">
-                     🛒 E-Commerce
+               <div className="flex items-center gap-8">
+                  <Link
+                     to="/"
+                     className="text-xl font-black text-black uppercase tracking-tight"
+                  >
+                     E-Commerce
                   </Link>
-                  <nav className="ml-10 space-x-8">
+                  <nav className="flex gap-6">
                      <Link
                         to="/products"
-                        className="text-gray-700 hover:text-blue-600 transition"
+                        className="text-black font-bold uppercase text-sm hover:underline"
                      >
                         Products
                      </Link>
@@ -23,29 +26,41 @@ export function Header() {
                         <>
                            <Link
                               to="/cart"
-                              className="text-gray-700 hover:text-blue-600 transition"
+                              className="text-black font-bold uppercase text-sm hover:underline"
                            >
                               Cart
                            </Link>
                            <Link
                               to="/orders"
-                              className="text-gray-700 hover:text-blue-600 transition"
+                              className="text-black font-bold uppercase text-sm hover:underline"
                            >
                               Orders
+                           </Link>
+                           <Link
+                              to="/payments"
+                              className="text-black font-bold uppercase text-sm hover:underline"
+                           >
+                              Payments
+                           </Link>
+                           <Link
+                              to="/admin/products"
+                              className="text-black font-bold uppercase text-sm hover:underline"
+                           >
+                              Admin Products
                            </Link>
                         </>
                      )}
                   </nav>
                </div>
-               <div className="flex items-center space-x-4">
+               <div className="flex items-center gap-4">
                   {user ? (
                      <>
-                        <span className="text-gray-700">
-                           Welcome, {user.name}!
+                        <span className="text-black font-bold">
+                           {user.name}
                         </span>
                         <button
                            onClick={logout}
-                           className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition"
+                           className="btn-brutal bg-black text-white"
                         >
                            Logout
                         </button>
@@ -54,13 +69,13 @@ export function Header() {
                      <>
                         <Link
                            to="/login"
-                           className="text-gray-700 hover:text-blue-600 transition"
+                           className="text-black font-bold uppercase text-sm hover:underline"
                         >
                            Login
                         </Link>
                         <Link
                            to="/register"
-                           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+                           className="btn-brutal bg-black text-white"
                         >
                            Register
                         </Link>

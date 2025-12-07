@@ -1,21 +1,37 @@
 const nodemailer = require("nodemailer");
-
+const wait = require("../utils/wait");
 const transporter = nodemailer.createTransport({
-   service: "gmail",
+   host: "smtp.ethereal.email",
+   port: 587,
    auth: {
-      user: process.env.NODEMAILER_EMAIL,
-      pass: process.env.NODEMAILER_PASSWORD,
+      user: process.env.ETHEREAL_USER,
+      pass: process.env.ETHEREAL_PASS,
    },
 });
 
 const sendEmail = async (to, subject, text) => {
    const mailOptions = {
-      from: process.env.NODEMAILER_EMAIL,
+      from: process.env.ETHEREAL_USER,
       to,
       subject,
       text,
    };
    try {
+      const shouldError =
+         process.env.NODE_ENV === "test" &&
+         process.env.SIMULATE_EMAIL_ERROR === "true";
+      if (shouldError && Math.random() < 0.05) {
+         throw new Error("Simulated email sending error for testing");
+      }
+      const shouldSend = process.env.NODE_ENV !== "test";
+
+      if (!shouldSend) {
+         console.log(
+            `Skipping email send in test environment. To: ${to}, Subject: ${subject}, Text: ${text}`
+         );
+         await wait(5000);
+         return;
+      }
       await transporter.sendMail(mailOptions);
       console.log("Email sent successfully");
    } catch (error) {

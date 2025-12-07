@@ -31,10 +31,11 @@ static_resources:
                                 - match: { prefix: "/" }
                                   route:
                                      cluster: order_service
+                                     timeout: 30s
                                      retry_policy:
                                         retry_on: "connect-failure,refused-stream"
                                         num_retries: 3
-                                        per_try_timeout: 2s
+                                        per_try_timeout: 10s
                                   decorator:
                                      operation: order-service-ingress
                      http_filters:

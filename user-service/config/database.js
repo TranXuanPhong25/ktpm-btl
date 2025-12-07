@@ -8,21 +8,16 @@ class Database {
    async connect(mongoURI) {
       try {
          if (this.connection) {
-            console.log("✅ Using existing MongoDB connection");
+            console.log("Using existing MongoDB connection");
             return this.connection;
          }
 
-         const options = {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-         };
-
-         this.connection = await mongoose.connect(mongoURI, options);
-         console.log("✅ User Service is Connected to MongoDB");
+         this.connection = await mongoose.connect(mongoURI);
+         console.log("User Service is Connected to MongoDB");
          return this.connection;
       } catch (err) {
          console.error(
-            "🚫 Error connecting to MongoDB -> User Service: ",
+            "Error connecting to MongoDB -> User Service: ",
             err.message
          );
          throw err;
@@ -33,7 +28,7 @@ class Database {
       if (this.connection) {
          await mongoose.disconnect();
          this.connection = null;
-         console.log("✅ Disconnected from MongoDB");
+         console.log("Disconnected from MongoDB");
       }
    }
 

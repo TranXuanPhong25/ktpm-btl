@@ -70,7 +70,7 @@ class RabbitMQConnection {
       });
    }
 
-   async consume(queueName, onMessage) {
+   async consume(queueName, onMessage, requeueOnError = false) {
       if (!this.channel) {
          throw new Error("Channel not initialized. Call connect() first.");
       }
@@ -86,7 +86,7 @@ class RabbitMQConnection {
                } catch (error) {
                   console.error("Error processing message:", error);
                   // Reject and don't requeue if there's a processing error
-                  this.channel.nack(msg, false, false);
+                  this.channel.nack(msg, false, requeueOnError);
                }
             }
          },

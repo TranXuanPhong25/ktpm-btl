@@ -1,0 +1,94 @@
+# Unified Relay Publisher - Routing Configuration
+# This file defines how events from the outbox are routed to different message sinks
+# Supported sink types: rabbitmq, redis_stream
+
+routing_keys:
+   # Order service eventsorder.failed
+   - event_type: "order.created"
+     sinks:
+        - type: "rabbitmq"
+          exchange: "order_exchange"
+          routing_key: "order.created"
+
+   - event_type: "order.failed"
+     sinks:
+        - type: "rabbitmq"
+          exchange: "order_exchange"
+          routing_key: "order.failed"
+
+   - event_type: "order.placed"
+     sinks:
+        - type: "rabbitmq"
+          exchange: "order_exchange"
+          routing_key: "order.placed"
+
+   - event_type: "order.processing"
+     sinks:
+        - type: "rabbitmq"
+          exchange: "order_exchange"
+          routing_key: "order.processing"
+
+   - event_type: "order.cancelled"
+     sinks:
+        - type: "rabbitmq"
+          exchange: "order_exchange"
+          routing_key: "order.cancelled"
+   # Payment service events
+   - event_type: "payment.succeeded"
+     sinks:
+        - type: "rabbitmq"
+          exchange: "payment_exchange"
+          routing_key: "payment.succeeded"
+
+   - event_type: "payment.failed"
+     sinks:
+        - type: "rabbitmq"
+          exchange: "payment_exchange"
+          routing_key: "payment.failed"
+
+   # Inventory service events
+   - event_type: "inventory.reserved"
+     sinks:
+        - type: "rabbitmq"
+          exchange: "inventory_exchange"
+          routing_key: "inventory.reserved"
+        - type: "redis_stream"
+          stream_key: "inventory:stock_updates"
+
+   - event_type: "inventory.restored"
+     sinks:
+        - type: "rabbitmq"
+          exchange: "inventory_exchange"
+          routing_key: "inventory.restored"
+        - type: "redis_stream"
+          stream_key: "inventory:stock_updates"
+
+   - event_type: "inventory.failed"
+     sinks:
+        - type: "rabbitmq"
+          exchange: "inventory_exchange"
+          routing_key: "inventory.failed"
+   - event_type: "stock.updated"
+     sinks:
+        - type: "redis_stream"
+          stream_key: "inventory:stock_updates"
+
+   # Product catalog events
+   - event_type: "product.created"
+     sinks:
+        - type: "rabbitmq"
+          exchange: "product_exchange"
+          routing_key: "product.created"
+
+   - event_type: "product.deleted"
+     sinks:
+        - type: "rabbitmq"
+          exchange: "product_exchange"
+          routing_key: "product.deleted"
+
+# Default sink for unmatched events (optional)
+default_sinks:
+   - type: "rabbitmq"
+     exchange: "default_exchange"
+     routing_key: "unmatched.event"
+redis_stream_maxlen: 3600000

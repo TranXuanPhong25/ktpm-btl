@@ -33,6 +33,7 @@ services:
       networks:
          - ecommerce-network
       deploy:
+         replicas: 2
          resources:
             limits:
                cpus: "1.0"
@@ -59,7 +60,7 @@ services:
       environment:
          - MONGO_URI=mongodb://mongo-users:27017/ecommerce-users
          - JWT_SECRET=${JWT_SECRET}
-         - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672
+         - RABBITMQ_URI=amqp://admin:admin@rabbitmq:5672
       networks:
          - ecommerce-network
       depends_on:
@@ -104,11 +105,13 @@ services:
          - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
       networks:
          - ecommerce-network
+      volumes:
+         - ./product-inventory:/app
       depends_on:
          - products-inventory-pg
          - rabbitmq
       deploy:
-         replicas: 4
+         replicas: 1
          resources:
             limits:
                cpus: "1.0"
@@ -117,10 +120,12 @@ services:
    product-catalog:
       build: ./product-catalog
       environment:
-         - MONGO_URI=mongodb://mongo-products:27017/ecommerce-products
+         - MONGO_URI=mongodb://mongo-products:27017/ecommerce-products?replicaSet=rs0
          - REDIS_DATABASE_URI=redis://redis-product:6379
       networks:
          - ecommerce-network
+      volumes:
+         - ./product-catalog:/app
       depends_on:
          mongo-products:
             condition: service_started
@@ -129,7 +134,7 @@ services:
          rabbitmq:
             condition: service_healthy
       deploy:
-         replicas: 4
+         replicas: 1
          resources:
             limits:
                cpus: "1.0"
@@ -158,6 +163,58 @@ services:
             "--log-level",
             "info",
          ]
+
+   inventory-catalog-sync:
+      build: ./inventory-catalog-sync-worker
+      container_name: inventory-catalog-sync
+      environment:
+         - REDIS_URI=redis://redis-product:6379
+         - MONGO_URI=mongodb://mongo-products:27017/ecommerce-products?replicaSet=rs0
+      networks:
+         - ecommerce-network
+      volumes:
+         - ./inventory-catalog-sync-worker:/app
+      depends_on:
+         redis-product:
+            condition: service_started
+         mongo-products:
+            condition: service_started
+      deploy:
+         replicas: 1
+         resources:
+            limits:
+               cpus: "0.5"
+               memory: 256mb
+
+   catalog-relay-publisher:
+      build: ./unified-relay-publisher
+      container_name: catalog-relay-publisher
+      environment:
+         - SERVICE_NAME=catalog
+         - DATABASE_TYPE=mongo
+         - MONGO_URI=mongodb://mongo-products:27017/ecommerce-products?replicaSet=rs0
+         - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
+         - REDIS_URI=redis://redis-product:6379
+         - POLL_INTERVAL_MS=500
+         - BATCH_SIZE=100
+      volumes:
+         - ./unified-relay-publisher/config/routing.yml:/app/config/routing.yml:ro
+      networks:
+         - ecommerce-network
+      depends_on:
+         mongo-products:
+            condition: service_started
+         rabbitmq:
+            condition: service_healthy
+         redis-product:
+            condition: service_started
+      restart: unless-stopped
+      deploy:
+         resources:
+            limits:
+               cpus: "0.5"
+               memory: 256mb
+
    product-inventory-envoy:
       image: envoyproxy/envoy:v1.31-latest
       container_name: product-inventory-envoy
@@ -210,7 +267,7 @@ services:
          test: ["CMD", "redis-cli", "ping"]
          interval: 5s
          timeout: 3s
-         retries: 5
+         retries: 3
    shopping-cart-service:
       build: ./shopping-cart-service
       environment:
@@ -220,6 +277,8 @@ services:
          - PORT=5002
       networks:
          - ecommerce-network
+      volumes:
+         - ./shopping-cart-service:/app
       depends_on:
          rabbitmq:
             condition: service_healthy
@@ -260,20 +319,22 @@ services:
       # ports:
       # - 5003:5003
       environment:
-         - MONGO_URI=mongodb://mongo-orders:27017/ecommerce-orders
-         - PRODUCT_INVENTORY_SERVICE_URI=http://product-inventory-envoy:8080
+         - MONGO_URI=mongodb://mongo-orders:27017/ecommerce-orders?replicaSet=rs0
+         - PRODUCT_CATALOG_SERVICE_URI=http://product-catalog-envoy:8080
          - SHOPPING_CART_SERVICE_URI=http://cart-service-envoy:8080
          - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
          - PORT=5003
       networks:
          - ecommerce-network
+      volumes:
+         - ./order-service:/app
       depends_on:
          mongo-orders:
             condition: service_started
          rabbitmq:
             condition: service_healthy
       deploy:
-         replicas: 4
+         replicas: 1
          resources:
             limits:
                cpus: "1.0"
@@ -303,6 +364,120 @@ services:
             "info",
          ]
 
+   # debezium-order-outbox-server:
+   #    image: quay.io/debezium/server:2.5
+   #    container_name: debezium-order-outbox-server
+   #    healthcheck:
+   #       test: curl http://debezium:8080/q/health || exit 1
+   #       interval: 5s
+   #       timeout: 5s
+   #       retries: 5
+   #    ports:
+   #       - "8090:8080"
+   #    volumes:
+   #       - ./debezium-server/order-outbox:/debezium/conf:readonly
+
+   #    networks:
+   #       - ecommerce-network
+   #    depends_on:
+   #       mongo-orders:
+   #          condition: service_healthy
+   #       rabbitmq:
+   #          condition: service_healthy
+   #    restart: unless-stopped
+   #    profiles:
+   #       - debezium
+
+   order-relay-publisher:
+      build: ./unified-relay-publisher
+      container_name: order-relay-publisher
+      environment:
+         - SERVICE_NAME=order
+         - DATABASE_TYPE=mongo
+         - MONGO_URI=mongodb://mongo-orders:27017/ecommerce-orders?replicaSet=rs0
+         - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
+         - REDIS_URI=redis://redis-product:6379
+         - POLL_INTERVAL_MS=500
+         - BATCH_SIZE=100
+      volumes:
+         - ./unified-relay-publisher/config/routing.yml:/app/config/routing.yml:ro
+      networks:
+         - ecommerce-network
+      depends_on:
+         mongo-orders:
+            condition: service_healthy
+         rabbitmq:
+            condition: service_healthy
+         redis-product:
+            condition: service_started
+      restart: unless-stopped
+      deploy:
+         resources:
+            limits:
+               cpus: "0.5"
+               memory: 256mb
+
+   payment-relay-publisher:
+      build: ./unified-relay-publisher
+      container_name: payment-relay-publisher
+      environment:
+         - SERVICE_NAME=payment
+         - DATABASE_TYPE=mongo
+         - MONGO_URI=mongodb://mongo-payments:27017/ecommerce-payments
+         - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
+         - REDIS_URI=redis://redis-product:6379
+         - POLL_INTERVAL_MS=500
+         - BATCH_SIZE=100
+      volumes:
+         - ./unified-relay-publisher/config/routing.yml:/app/config/routing.yml:ro
+      networks:
+         - ecommerce-network
+      depends_on:
+         mongo-payments:
+            condition: service_started
+         rabbitmq:
+            condition: service_healthy
+         redis-product:
+            condition: service_started
+      restart: unless-stopped
+      deploy:
+         resources:
+            limits:
+               cpus: "0.5"
+               memory: 256mb
+
+   inventory-relay-publisher:
+      build: ./unified-relay-publisher
+      container_name: inventory-relay-publisher
+      environment:
+         - SERVICE_NAME=inventory
+         - DATABASE_TYPE=postgres
+         - POSTGRES_URI=postgresql://postgres:postgres@products-inventory-pg:5432/postgres
+         - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
+         - REDIS_URI=redis://redis-product:6379
+         - POLL_INTERVAL_MS=500
+         - BATCH_SIZE=100
+         - CLEANUP_INTERVAL_HOURS=12
+         - RETENTION_HOURS=24
+         - MAX_
+      volumes:
+         - ./unified-relay-publisher/config/routing.yml:/app/config/routing.yml:ro
+      networks:
+         - ecommerce-network
+      depends_on:
+         products-inventory-pg:
+            condition: service_started
+         rabbitmq:
+            condition: service_healthy
+         redis-product:
+            condition: service_started
+      restart: unless-stopped
+      deploy:
+         resources:
+            limits:
+               cpus: "0.5"
+               memory: 256mb
+
    payment-service:
       build: ./payment-service
       environment:
@@ -310,6 +485,8 @@ services:
          - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
 
          - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      volumes:
+         - ./payment-service:/app
       networks:
          - ecommerce-network
       depends_on:
@@ -347,10 +524,11 @@ services:
       environment:
          - NODEMAILER_EMAIL=${NODEMAILER_EMAIL}
          - NODEMAILER_PASSWORD=${NODEMAILER_PASSWORD}
-         - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
-         - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
-         - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
          - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
+      ports:
+         - "51111:5005"
+      volumes:
+         - ./notification-service:/app
       networks:
          - ecommerce-network
       depends_on:
@@ -360,9 +538,9 @@ services:
    # RabbitMQ Message Broker
    rabbitmq:
       image: rabbitmq:3-management-alpine
-      # ports:
-      #    - "5672:5672" # AMQP port
-      #    - "15672:15672" # Management UI
+      ports:
+         - "5672:5672" # AMQP port
+         - "15672:15672" # Management UI
       environment:
          - RABBITMQ_DEFAULT_USER=admin
          - RABBITMQ_DEFAULT_PASS=admin123
@@ -377,10 +555,9 @@ services:
          retries: 10
          start_period: 40s
       deploy:
-         replicas: 3
          resources:
             limits:
-               cpus: "1.0"
+               cpus: "3.0"
                memory: 512mb
 
    notification-service-envoy:
@@ -429,11 +606,18 @@ services:
          - mongo-products-data:/data/db
       networks:
          - ecommerce-network
+      command: ["--replSet", "rs0", "--bind_ip_all"]
+      healthcheck:
+         test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet | grep -q 1
+         interval: 10s
+         timeout: 5s
+         retries: 5
+         start_period: 30s
       deploy:
          resources:
             limits:
-               cpus: "1.0"
-               memory: 1G
+               cpus: "0.5"
+               memory: 512M
 
    mongo-cart:
       image: mongo:latest
@@ -457,6 +641,13 @@ services:
          - mongo-orders-data:/data/db
       networks:
          - ecommerce-network
+      command: ["--replSet", "rs0", "--bind_ip_all"]
+      healthcheck:
+         test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet | grep -q 1
+         interval: 10s
+         timeout: 5s
+         retries: 5
+         start_period: 30s
       deploy:
          resources:
             limits:
@@ -476,6 +667,7 @@ services:
             limits:
                cpus: "0.5"
                memory: 512M
+
    products-inventory-pg:
       image: postgres:15-alpine
       environment:
@@ -514,7 +706,7 @@ services:
       deploy:
          resources:
             limits:
-               cpus: "1.0"
+               cpus: "2.0"
                memory: 500mb
    cadvisor:
       image: gcr.io/cadvisor/cadvisor:latest
@@ -574,6 +766,7 @@ volumes:
    rabbitmq-data: {}
    redis_data: {}
    product_inventory_pg: {}
+   debezium-data: {}
 networks:
    ecommerce-network:
       driver: bridge

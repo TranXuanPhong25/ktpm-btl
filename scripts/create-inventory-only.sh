@@ -40,8 +40,7 @@ for ((i=$START_INDEX; i<$END_INDEX; i++)); do
     JSON_PAYLOAD=$(cat <<EOF
 {
     "id": "$PRODUCT_ID",
-    "stock": $STOCK,
-    "price": 36
+    "stock": $STOCK
 }
 EOF
 )

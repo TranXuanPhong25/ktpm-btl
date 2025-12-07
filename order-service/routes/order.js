@@ -7,7 +7,12 @@ const router = express.Router();
 router.post("/:userId", async (req, res) => {
    const { userId } = req.params;
    const { items } = req.body;
-
+   const uniqueItems = new Set(items.map((item) => item.productId));
+   if (uniqueItems.size !== items.length) {
+      return res
+         .status(400)
+         .json({ msg: "Duplicate product IDs in order items" });
+   }
    try {
       const order = await orderService.placeOrder(userId, items);
       res.status(201).json(order);
@@ -29,12 +34,17 @@ router.post("/:userId", async (req, res) => {
    }
 });
 
-// Get all orders for a user
+// Get all orders for a user with pagination
 router.get("/:userId", async (req, res) => {
    const { userId } = req.params;
    try {
-      const orders = await orderService.getOrdersByUser(userId);
-      res.json(orders);
+      const page = parseInt(req.query.page) || 1;
+      const limit = Math.min(parseInt(req.query.limit) || 20, 100); // Max 100 items per page
+      const result = await orderService.getOrdersByUser(userId, {
+         page,
+         limit,
+      });
+      res.json(result);
    } catch (err) {
       if (err.message.includes("required")) {
          return res.status(400).json({ msg: err.message });

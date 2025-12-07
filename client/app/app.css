@@ -2,15 +2,71 @@
 
 @theme {
    --font-sans:
-      "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
-      "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+      "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif,
+      "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+      "Noto Color Emoji";
+
+   /* Minimal Black & White */
+   --color-nb-black: #000000;
+   --color-nb-white: #ffffff;
+   --color-nb-gray: #f5f5f5;
+
+   /* Shadow variables */
+   --shadow-brutal: 4px 4px 0px 0px #000000;
+   --shadow-brutal-lg: 8px 8px 0px 0px #000000;
+   --shadow-brutal-xl: 12px 12px 0px 0px #000000;
 }
 
 html,
 body {
-   @apply bg-white dark:bg-gray-950;
+   @apply bg-white;
+   font-family: var(--font-sans);
+}
 
-   @media (prefers-color-scheme: dark) {
-      color-scheme: dark;
-   }
+/* Minimal Brutal utility classes */
+.border-brutal {
+   border: 3px solid var(--color-nb-black);
+}
+
+.border-brutal-thick {
+   border: 5px solid var(--color-nb-black);
+}
+
+.shadow-brutal {
+   box-shadow: var(--shadow-brutal);
+}
+
+.shadow-brutal-lg {
+   box-shadow: var(--shadow-brutal-lg);
+}
+
+.shadow-brutal-xl {
+   box-shadow: var(--shadow-brutal-xl);
+}
+
+.btn-brutal {
+   border: 3px solid var(--color-nb-black);
+   box-shadow: var(--shadow-brutal);
+   font-weight: 700;
+   text-transform: uppercase;
+   letter-spacing: 0.05em;
+   transition: all 0.15s ease;
+   padding: 0.75rem 1.5rem;
+   cursor: pointer;
+}
+
+.btn-brutal:hover:not(:disabled) {
+   transform: translate(2px, 2px);
+   box-shadow: 2px 2px 0px 0px #000000;
+}
+
+.btn-brutal:active:not(:disabled) {
+   transform: translate(4px, 4px);
+   box-shadow: none;
+}
+
+.card-brutal {
+   border: 3px solid var(--color-nb-black);
+   box-shadow: var(--shadow-brutal-lg);
+   background-color: var(--color-nb-white);
 }

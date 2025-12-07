@@ -14,10 +14,7 @@ class Database {
       try {
          this.connection = new Sequelize(postgresURI, options);
       } catch (err) {
-         console.error(
-            "🚫 Failed to initialize Sequelize instance:",
-            err.message
-         );
+         console.error("Failed to initialize Sequelize instance:", err.message);
          process.exit(1);
       }
    }
@@ -25,24 +22,38 @@ class Database {
    async connect() {
       try {
          await this.connection.authenticate();
-         console.log("✅ Product Service is Connected to PostgreSQL");
+         console.log("Product Service is Connected to PostgreSQL");
       } catch (err) {
          console.error(
-            "🚫 Error connecting to PostgreSQL -> Product Service: ",
+            "Error connecting to PostgreSQL -> Product Service: ",
             err.message
          );
          throw err;
       }
    }
-
+   async migrations() {
+      if (!this.connection) {
+         throw new Error("Database connection is not established");
+      }
+      try {
+         await this.connection.sync({ alter: true });
+         await this.connection.query(`
+               ALTER TABLE "Products"
+               ADD CONSTRAINT stock_non_negative CHECK (stock >= 0)
+               `);
+      } catch (err) {
+         if (!err.message.includes("already exists")) {
+            throw err;
+         }
+      }
+   }
    async disconnect() {
       if (this.connection) {
          await this.connection.close();
          this.connection = null;
-         console.log("✅ Disconnected from PostgreSQL");
+         console.log("Disconnected from PostgreSQL");
       }
    }
-
    getConnection() {
       return this.connection;
    }

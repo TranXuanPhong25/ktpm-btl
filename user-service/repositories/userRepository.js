@@ -42,12 +42,32 @@ class UserRepository {
    }
 
    /**
-    * Find all users
-    * @returns {Promise<Array>} List of users
+    * Find all users with pagination
+    * @param {Object} options - Pagination options
+    * @param {number} options.page - Page number (1-based)
+    * @param {number} options.limit - Items per page
+    * @returns {Promise<Object>} Paginated result with data and metadata
     */
-   async findAll() {
+   async findAll({ page = 1, limit = 20 } = {}) {
       try {
-         return await User.find().select("-password"); // Exclude password
+         const skip = (page - 1) * limit;
+         const [users, total] = await Promise.all([
+            User.find()
+               .select("-password")
+               .skip(skip)
+               .limit(limit)
+               .sort({ createdAt: -1 }),
+            User.countDocuments(),
+         ]);
+         return {
+            data: users,
+            pagination: {
+               page,
+               limit,
+               total,
+               totalPages: Math.ceil(total / limit),
+            },
+         };
       } catch (err) {
          throw new Error(`Failed to get all users: ${err.message}`);
       }

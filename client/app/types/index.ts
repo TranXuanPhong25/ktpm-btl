@@ -11,7 +11,9 @@ export interface Product {
    description: string;
    price: number;
    category: string;
-   stock: number;
+   inventory: {
+      stock: number | undefined;
+   };
    createdAt?: string;
 }
 
@@ -32,6 +34,7 @@ export interface OrderItem {
    productId: string;
    quantity: number;
    price?: number;
+   name?: string;
 }
 
 export interface Order {
@@ -41,6 +44,7 @@ export interface Order {
    totalAmount: number;
    status: "pending" | "confirmed" | "shipped" | "delivered" | "cancelled";
    createdAt?: string;
+   reason?: string;
 }
 
 export interface Payment {
@@ -49,5 +53,5 @@ export interface Payment {
    amount: number;
    status: string;
    paymentMethod: string;
-   createdAt?: string;
+   paymentDate?: string;
 }

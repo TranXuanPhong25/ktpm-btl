@@ -10,7 +10,7 @@ const redis = new Redis(
       commandTimeout: 1000, // 1 second command timeout
       retryStrategy(times) {
          if (times > 3) {
-            console.error("❌ Redis connection failed after 3 retries");
+            console.error("Redis connection failed after 3 retries");
             return null; // Stop retrying
          }
          const delay = Math.min(times * 50, 2000);

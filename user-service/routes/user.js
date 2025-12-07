@@ -16,11 +16,13 @@ router.get("/:userId", async (req, res) => {
    }
 });
 
-// Get all users
+// Get all users with pagination
 router.get("/", async (req, res) => {
    try {
-      const users = await userService.getAllUsers();
-      res.json(users);
+      const page = parseInt(req.query.page) || 1;
+      const limit = Math.min(parseInt(req.query.limit) || 20, 100); // Max 100 items per page
+      const result = await userService.getAllUsers({ page, limit });
+      res.json(result);
    } catch (error) {
       res.status(500).json({ error: error.message });
    }

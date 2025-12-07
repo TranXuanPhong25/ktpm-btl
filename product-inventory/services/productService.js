@@ -1,21 +1,20 @@
+const outboxRepository = require("../repositories/outboxRepository");
 const productRepository = require("../repositories/productRepository");
+const outboxService = require("./outboxService");
+const transaction = require("../repositories/transaction");
 
 class ProductService {
    /**
     * Create a new product
-    * @param {Object} productData - Product data (id, price, stock)
+    * @param {Object} productData - Product data (id, stock)
     * @returns {Promise<Object>} Created product
     */
    async createProduct(productData) {
-      const { id, price, stock } = productData;
+      const { id, stock } = productData;
 
       // Validation
       if (!id) {
          throw new Error("Product ID is required");
-      }
-
-      if (!price || price <= 0) {
-         throw new Error("Price must be greater than 0");
       }
 
       if (stock === undefined || stock < 0) {
@@ -23,22 +22,30 @@ class ProductService {
       }
 
       // Create product
-      const product = await productRepository.create({
-         id,
-         price,
-         stock,
-      });
 
-      return product;
+      await transaction.execute(async (tx) => {
+         // Create outbox event
+         const product = await productRepository.create({ id, stock }, tx);
+         await outboxService.createOutboxEntry(
+            {
+               aggregateId: product.id.toString(),
+               aggregateType: "Product",
+               eventType: "stock.updated",
+               payload: [{ id: product.id, stock: product.stock }],
+            },
+            tx
+         );
+      });
    }
 
    /**
-    * Get all products
-    * @param {Object} filters - Optional filters
-    * @returns {Promise<Array>} List of products
+    * Get all products with pagination
+    * @param {Object} pagination - Pagination options (page, limit)
+    * @returns {Promise<Object>} Paginated result with data and metadata
     */
-   async getAllProducts() {
-      return await productRepository.findAll();
+   async getAllProducts(pagination = {}) {
+      const { page = 1, limit = 20 } = pagination;
+      return await productRepository.findAll({ page, limit });
    }
 
    /**
@@ -81,43 +88,6 @@ class ProductService {
    }
 
    /**
-    * Update product with validation
-    * @param {string} productId - Product ID
-    * @param {Object} updateData - Data to update
-    * @returns {Promise<Object>} Updated product
-    */
-   async updateProduct(productId, updateData) {
-      if (!productId) {
-         throw new Error("Product ID is required");
-      }
-
-      const { price, stock } = updateData;
-
-      // Validation
-      if (price !== undefined && price <= 0) {
-         throw new Error("Price must be greater than 0");
-      }
-
-      if (stock !== undefined && stock < 0) {
-         throw new Error("Stock cannot be negative");
-      }
-
-      // Check if product exists
-      const existingProduct = await productRepository.findById(productId);
-      if (!existingProduct) {
-         throw new Error("Product not found");
-      }
-
-      // Update product
-      const updatedProduct = await productRepository.update(productId, {
-         price,
-         stock,
-      });
-
-      return updatedProduct;
-   }
-
-   /**
     * Delete product
     * @param {string} productId - Product ID
     * @returns {Promise<Object>} Deleted product
@@ -127,108 +97,102 @@ class ProductService {
          throw new Error("Product ID is required");
       }
 
-      const product = await productRepository.delete(productId);
-      if (!product) {
-         throw new Error("Product not found");
-      }
-
-      return product;
+      await transaction.execute(async (tx) => {
+         const product = await productRepository.delete(productId, tx);
+         if (!product) {
+            throw new Error("Product not found");
+         }
+         await outboxService.createOutboxEntry(
+            {
+               aggregateId: product.id.toString(),
+               aggregateType: "Product",
+               eventType: "stock.updated",
+               payload: [{ id: product.id, stock: -1 }],
+            },
+            tx
+         );
+      });
    }
-
    /**
-    * Deduct stock from product with business logic
-    * @param {string} productId - Product ID
-    * @param {number} quantity - Quantity to deduct
-    * @returns {Promise<Object>} Updated product
+    * Bulk update stock for multiple products with outbox entry
+    * @param {Array<{id: string, quantity: number, name: string}>} updates - List of product stock updates
+    * @param {string|null} orderId - Associated order ID for inventory operations (optional)
+    * @returns {Promise<Object>} Result with updated products
     */
-   async deductStock(productId, quantity) {
-      if (!productId) {
-         throw new Error("Product ID is required");
-      }
-
-      if (!quantity || quantity <= 0) {
-         throw new Error("Quantity must be greater than 0");
-      }
-
-      const updatedProduct = await productRepository.deductStock(
-         productId,
-         quantity
-      );
-
-      return updatedProduct;
-   }
-
-   /**
-    * Deduct stock from multiple products in bulk with business logic
-    * @param {Array<{ id: string, quantity: number }>} updates - List of productId and quantity
-    * @returns {Promise<Array<Object>>} List of updated products
-    */
-   // ProductService.js - bulkDeductStock (BẢN SỬA)
-   async bulkDeductStock(updates) {
+   async bulkUpdateStockWithOutbox(updates, orderId = null) {
       if (!Array.isArray(updates) || updates.length === 0) {
          throw new Error("updates must be a non-empty array");
       }
 
-      for (const { id, quantity } of updates) {
+      for (const { id, quantity, name } of updates) {
          if (!id) throw new Error("Product ID is required in updates");
-         if (!quantity || quantity <= 0) {
+         if (!orderId && (!quantity || quantity <= 0)) {
             throw new Error(
-               `Invalid quantity for product ${id}. Must be greater than 0`
+               `Invalid quantity for product ${name}. Must be greater than 0`
             );
          }
       }
+      return await transaction.execute(async (tx) => {
+         const ids = updates.map((update) => update.id);
 
-      return await productRepository.bulkDeductStock(updates);
-   }
+         // Lock and fetch products
+         const withLock = true;
+         const products = await productRepository.findManyByIds(
+            ids,
+            withLock,
+            tx
+         );
 
-   /**
-    * Add stock to product
-    * @param {string} productId - Product ID
-    * @param {number} quantity - Quantity to add
-    * @returns {Promise<Object>} Updated product
-    */
-   async addStock(productId, quantity) {
-      if (!productId) {
-         throw new Error("Product ID is required");
-      }
-      if (!quantity || quantity <= 0) {
-         throw new Error("Quantity must be greater than 0");
-      }
+         // Build product map
+         const productMap = products.reduce((map, product) => {
+            map[product.id.toString()] = product;
+            return map;
+         }, {});
+         let updateProducts = [];
 
-      return await productRepository.addStock(productId, quantity);
-   }
+         for (const { id, quantity } of updates) {
+            const product = productMap[id];
+            if (!product) {
+               throw new Error(`Product with ID ${id} not found`);
+            }
 
-   /**
-    * Check product availability
-    * @param {string} productId - Product ID
-    * @param {number} quantity - Required quantity
-    * @returns {Promise<Object>} Availability info
-    */
-   async checkAvailability(productId, quantity) {
-      if (!productId) {
-         throw new Error("Product ID is required");
-      }
+            // Only validate negative stock for deduct operations
+            if (orderId && quantity < 0 && product.stock < Math.abs(quantity)) {
+               throw new Error(
+                  `Insufficient stock for product ID: ${id}. Available: ${product.stock}, Requested: ${Math.abs(quantity)}`
+               );
+            }
 
-      const product = await productRepository.findById(productId);
-      if (!product) {
-         throw new Error("Product not found");
-      }
+            const newStock = orderId ? product.stock + quantity : quantity;
 
-      return {
-         productId: product.id,
-         requestedQuantity: quantity,
-         availableStock: product.stock,
-         isAvailable: product.stock >= quantity,
-      };
-   }
+            updateProducts.push({
+               id,
+               stock: newStock,
+            });
+         }
 
-   /**
-    * Get low stock products
-    * @param {number} threshold - Stock threshold (default: 10)
-    * @returns {Promise<Array>} List of low stock products
-    */
-   async getLowStockProducts(threshold = 10) {
-      return await productRepository.findLowStock(threshold);
+         // Update stock (add or deduct)
+         const updatedProducts =
+            await productRepository.bulkUpdateStockInTransaction(updates, tx);
+         let eventType = "stock.updated";
+         let aggregateId = ids.join(",");
+         if (orderId) {
+            eventType =
+               updates[0].quantity < 0
+                  ? "inventory.reserved"
+                  : "inventory.restored";
+            aggregateId = orderId;
+         }
+         const stockUpdateOutbox = {
+            aggregateId: aggregateId,
+            aggregateType: "Inventory",
+            eventType,
+            payload: updateProducts,
+         };
+         await outboxService.createOutboxEntry(stockUpdateOutbox, tx);
+
+         return { products: updatedProducts };
+      });
    }
 }
 

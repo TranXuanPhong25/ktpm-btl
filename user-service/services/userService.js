@@ -25,16 +25,21 @@ class UserService {
    }
 
    /**
-    * Get all users
-    * @returns {Promise<Array>} List of users
+    * Get all users with pagination
+    * @param {Object} pagination - Pagination options (page, limit)
+    * @returns {Promise<Object>} Paginated result with data and metadata
     */
-   async getAllUsers() {
-      const users = await userRepository.findAll();
-      return users.map((user) => ({
-         id: user._id,
-         name: user.name,
-         email: user.email,
-      }));
+   async getAllUsers(pagination = {}) {
+      const { page = 1, limit = 20 } = pagination;
+      const result = await userRepository.findAll({ page, limit });
+      return {
+         data: result.data.map((user) => ({
+            id: user._id,
+            name: user.name,
+            email: user.email,
+         })),
+         pagination: result.pagination,
+      };
    }
 
    /**

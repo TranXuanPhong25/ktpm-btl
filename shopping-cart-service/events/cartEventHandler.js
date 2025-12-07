@@ -12,7 +12,8 @@ const EXCHANGES = {
 };
 
 const QUEUES = {
-   CART_CLEAR: "cart_clear_queue",
+   // Dedicated queue for receiving Order Processing events from Order Service
+   ORDER_TO_CART: "order.to.cart.queue",
 };
 
 class CartEventHandler {
@@ -28,10 +29,10 @@ class CartEventHandler {
          // Setup exchange for order events
          await this.rabbitMQ.assertExchange(EXCHANGES.ORDER);
 
-         // Setup queue for cart service to listen to order events
-         await this.rabbitMQ.assertQueue(QUEUES.CART_CLEAR);
+         // Setup dedicated queue for receiving Order Created events from Order Service
+         await this.rabbitMQ.assertQueue(QUEUES.ORDER_TO_CART);
          await this.rabbitMQ.bindQueue(
-            QUEUES.CART_CLEAR,
+            QUEUES.ORDER_TO_CART,
             EXCHANGES.ORDER,
             EVENTS.ORDER_CREATED
          );
@@ -54,9 +55,7 @@ class CartEventHandler {
     * Start listening to order events
     */
    async startListening() {
-      await this.rabbitMQ.consume(QUEUES.CART_CLEAR, async (event) => {
-         console.log(`📥 Cart service received event: ${event.eventType}`);
-
+      await this.rabbitMQ.consume(QUEUES.ORDER_TO_CART, async (event) => {
          try {
             if (event.eventType === EVENTS.ORDER_CREATED) {
                await this.handleOrderCreated(event);
@@ -72,16 +71,10 @@ class CartEventHandler {
     * Handle order created event - clear the user's cart
     */
    async handleOrderCreated(event) {
-      const { orderId, userId } = event;
+      const { orderId, userId } = event.payload;
 
       try {
-         console.log(
-            `🛒 Clearing cart for user ${userId} after order ${orderId} creation`
-         );
-
          await cartRepository.clearItems(userId);
-
-         console.log(`✓ Cart cleared successfully for user ${userId}`);
       } catch (error) {
          console.error(
             `Failed to clear cart for user ${userId}:`,

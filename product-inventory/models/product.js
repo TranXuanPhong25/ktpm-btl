@@ -1,5 +1,5 @@
 const { DataTypes } = require("sequelize");
-const database = require("../config/database");
+const database = require("./database");
 
 const sequelize = database.getConnection();
 
@@ -11,10 +11,6 @@ const Product = sequelize.define("Product", {
    id: {
       type: DataTypes.CHAR(24), // hex 24 ký tự
       primaryKey: true,
-      allowNull: false,
-   },
-   price: {
-      type: DataTypes.DECIMAL(10, 2),
       allowNull: false,
    },
    stock: {
