@@ -45,15 +45,10 @@ class ProductEventHandler {
       await this.rabbitMQ.consume(
          QUEUES.PRODUCT_TO_INVENTORY,
          async (event) => {
-            try {
-               if (event.eventType === EVENTS.PRODUCT_CREATED) {
-                  await this.handleProductCreated(event);
-               } else if (event.eventType === EVENTS.PRODUCT_DELETED) {
-                  await this.handleProductDeleted(event);
-               }
-            } catch (error) {
-               console.error("Error handling product event:", error.message);
-               throw error;
+            if (event.eventType === EVENTS.PRODUCT_CREATED) {
+               await this.handleProductCreated(event);
+            } else if (event.eventType === EVENTS.PRODUCT_DELETED) {
+               await this.handleProductDeleted(event);
             }
          }
       );

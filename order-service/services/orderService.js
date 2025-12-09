@@ -46,7 +46,7 @@ class OrderService {
       }
       const informativeItems = items.map((item) => ({
          productId: item.productId,
-         quantity: productMap[item.productId].quantity,
+         quantity: item.quantity,
          name: productMap[item.productId].name,
          price: productMap[item.productId].price,
       }));

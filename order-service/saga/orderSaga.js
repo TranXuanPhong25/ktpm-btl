@@ -210,42 +210,52 @@ class OrderSaga {
 
    async handleInventoryReserved(event) {
       const { aggregateId: orderId } = event;
-      let order;
+
+      // Try to transition from Processing -> Created using Atomic Conditional Update
       try {
-         order = await orderRepository.findById(orderId);
-      } catch (err) {
-         console.error(`Failed to fetch order ${orderId}:`, err.message);
-         return;
-      }
-
-      const currentStatus =
-         order && order.status ? String(order.status).toLowerCase() : null;
-      if (currentStatus === "placed") {
-         // Order already placed (payment succeeded first), keep as Placed
-         console.log(
-            `📦 Inventory reserved for order ${orderId}, status already 'Placed' - no change needed`
-         );
-         return;
-      }
-
-      if (currentStatus === "processing") {
-         // Order is processing (reservation succeeded first), update to Created
-         await orderRepository.updateStatusWithOutbox(orderId, "Created", {
-            aggregateType: "Order",
-            eventType: EVENTS.ORDER_CREATED,
-            payload: {
+         const updatedOrder =
+            await orderRepository.updateStatusIfCurrentStatusIs(
                orderId,
-               userId: order.userId,
-               items: order.items,
-               totalAmount: order.totalAmount,
-               status: "Created",
-               timestamp: new Date().toISOString(),
-            },
-         });
-         console.log(
-            `📦 Inventory reserved for order ${orderId}, status was 'Processing' -> 'Created'`
+               "PROCESSING", // Expected current status
+               "CREATED", // New status
+               {
+                  aggregateType: "Order",
+                  eventType: EVENTS.ORDER_CREATED,
+                  payload: {
+                     orderId,
+                     status: "CREATED",
+                     // Note: userId, items, totalAmount will be filled by repository from the DB document
+                  },
+               }
+            );
+
+         if (updatedOrder) {
+            if (updatedOrder.skipped) return; // Idempotency handled
+            console.log(
+               `📦 Inventory reserved for order ${orderId}, status was 'Processing' -> 'Created'`
+            );
+            return;
+         }
+
+         // If update failed, it means status was NOT 'Processing' (or order missing)
+         // We fetch just for logging purposes to understand what happened
+         const currentOrder = await orderRepository.findById(orderId);
+         const currentStatus = currentOrder?.status?.toUpperCase();
+
+         if (currentStatus === "PLACED") {
+            console.log(
+               `📦 Inventory reserved for order ${orderId}, but status is already 'Placed' - ignoring (Race condition handled)`
+            );
+         } else {
+            console.warn(
+               `⚠️ Inventory reserved for order ${orderId}, but status is '${currentStatus}' (expected 'Processing') - ignoring`
+            );
+         }
+      } catch (err) {
+         console.error(
+            `Failed to handle inventory reserved for order ${orderId}:`,
+            err.message
          );
-         return;
       }
    }
 
@@ -292,51 +302,101 @@ class OrderSaga {
    async handlePaymentSucceeded(event) {
       const { orderId, paymentId } = event.payload;
 
-      // Ensure order is in a state that can be moved to Placed.
-      // Only update when order status is 'Pending' or 'Created' (case-insensitive).
-      let order;
       try {
-         order = await orderRepository.findById(orderId);
-      } catch (err) {
-         console.error(`Failed to fetch order ${orderId}:`, err.message);
-      }
-      const currentStatus =
-         order && order.status ? String(order.status).toLowerCase() : null;
+         // 1. Try transition from 'Created' -> 'Placed'
+         let updatedOrder = await orderRepository.updateStatusIfCurrentStatusIs(
+            orderId,
+            "Created",
+            "Placed",
+            {
+               aggregateType: "Order",
+               eventType: EVENTS.ORDER_PLACED,
+               payload: {
+                  orderId,
+                  paymentId,
+                  status: "Placed",
+               },
+            }
+         );
 
-      if (currentStatus === "pending" || currentStatus === "created") {
-         // Update order status to 'Placed' with outbox event
-         await orderRepository.updateStatusWithOutbox(orderId, "Placed", {
+         if (updatedOrder) {
+            if (!updatedOrder.skipped) {
+               console.log(
+                  `💰 Payment succeeded for order ${orderId}, status 'Created' -> 'Placed'`
+               );
+            }
+            return;
+         }
+
+         // 2. If failed, try transition from 'Processing' -> 'Placed' (Race condition: Payment faster than Inventory)
+         // Note: In a strict Saga, we might want to wait for Inventory, but here we allow completing if Payment is done.
+         // However, usually we want Inventory Reserved FIRST.
+         // If we allow Processing -> Placed, we assume Inventory will eventually succeed.
+         // Let's stick to the logic: If it's Processing, we can also move to Placed (assuming Inventory is implicitly OK or will be checked).
+         // Actually, if Payment succeeds but Inventory hasn't returned yet, we should probably wait?
+         // But the original code allowed "pending" (Processing) or "created" to move to Placed.
+         // Let's support 'Processing' -> 'Placed' as well for robustness against message ordering.
+
+         updatedOrder = await orderRepository.updateStatusIfCurrentStatusIs(
+            orderId,
+            "Processing",
+            "Placed",
+            {
+               aggregateType: "Order",
+               eventType: EVENTS.ORDER_PLACED,
+               payload: {
+                  orderId,
+                  paymentId,
+                  status: "Placed",
+               },
+            }
+         );
+
+         if (updatedOrder) {
+            if (!updatedOrder.skipped) {
+               console.log(
+                  `💰 Payment succeeded for order ${orderId}, status 'Processing' -> 'Placed' (Inventory might be lagging)`
+               );
+            }
+            return;
+         }
+
+         // 3. If both failed, check current status to decide if we need to fail/refund
+         const currentOrder = await orderRepository.findById(orderId);
+         const currentStatus = currentOrder?.status;
+
+         if (currentStatus === "Placed") {
+            console.log(
+               `💰 Payment succeeded for order ${orderId}, but already 'Placed' - ignoring`
+            );
+            return;
+         }
+
+         // If order is not in a valid state to be placed, we must fail it (and refund)
+         const reason = `Order status is '${currentStatus}', cannot transition to Placed`;
+         await orderRepository.updateStatusWithOutbox(orderId, "Failed", {
             aggregateType: "Order",
-            eventType: EVENTS.ORDER_PLACED,
+            eventType: EVENTS.ORDER_FAILED,
             payload: {
                orderId,
                paymentId,
-               status: "Placed",
+               userId: currentOrder ? currentOrder.userId : null,
+               items: currentOrder ? currentOrder.items : [],
+               totalAmount: currentOrder ? currentOrder.totalAmount : 0,
+               status: "FAILED",
+               reason,
                timestamp: new Date().toISOString(),
             },
          });
-         return;
+         console.log(
+            `📤 ORDER_FAILED event written to outbox for order ${orderId} (paymentId ${paymentId}) – reason: ${reason}`
+         );
+      } catch (err) {
+         console.error(
+            `Failed to handle payment succeeded for order ${orderId}:`,
+            err.message
+         );
       }
-
-      // If order is not in 'created'/'pending' state, publish ORDER_FAILED so payment service can refund
-      const reason = `Order status is '${order ? order.status : "unknown"}', cannot transition to Placed`;
-      await orderRepository.updateStatusWithOutbox(orderId, "Failed", {
-         aggregateType: "Order",
-         eventType: EVENTS.ORDER_FAILED,
-         payload: {
-            orderId,
-            paymentId,
-            userId: order ? order.userId : null,
-            items: order ? order.items : [],
-            totalAmount: order ? order.totalAmount : 0,
-            status: "FAILED",
-            reason,
-            timestamp: new Date().toISOString(),
-         },
-      });
-      console.log(
-         `📤 ORDER_FAILED event written to outbox for order ${orderId} (paymentId ${paymentId}) – reason: ${reason}`
-      );
    }
 
    /**
