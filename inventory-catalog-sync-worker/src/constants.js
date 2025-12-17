@@ -1,7 +1,7 @@
 const EVENTS = {
    PRODUCT_CREATED: "product.created",
    PRODUCT_DELETED: "product.deleted",
-   STOCK_UPDATED: "stock.updated",
+   INVENTORY_STOCK_UPDATED: "inventory.stock.updated",
 
    ORDER_CREATED: "order.created",
    ORDER_PROCESSING: "order.processing",

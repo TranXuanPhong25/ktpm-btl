@@ -272,9 +272,9 @@ class OrderSaga {
 
       const currentStatus =
          order && order.status ? String(order.status).toLowerCase() : null;
-      if (currentStatus === "placed") {
+      if (currentStatus === "PLACED") {
          // Refund event
-         await orderRepository.updateStatusWithOutbox(orderId, "Failed", {
+         await orderRepository.updateStatusWithOutbox(orderId, "FAILED", {
             aggregateType: "Order",
             eventType: EVENTS.ORDER_FAILED,
             payload: {
@@ -306,15 +306,15 @@ class OrderSaga {
          // 1. Try transition from 'Created' -> 'Placed'
          let updatedOrder = await orderRepository.updateStatusIfCurrentStatusIs(
             orderId,
-            "Created",
-            "Placed",
+            "CREATED",
+            "PLACED",
             {
                aggregateType: "Order",
                eventType: EVENTS.ORDER_PLACED,
                payload: {
                   orderId,
                   paymentId,
-                  status: "Placed",
+                  status: "PLACED",
                },
             }
          );
@@ -322,7 +322,7 @@ class OrderSaga {
          if (updatedOrder) {
             if (!updatedOrder.skipped) {
                console.log(
-                  `💰 Payment succeeded for order ${orderId}, status 'Created' -> 'Placed'`
+                  `💰 Payment succeeded for order ${orderId}, status 'CREATED' -> 'PLACED'`
                );
             }
             return;
@@ -339,15 +339,15 @@ class OrderSaga {
 
          updatedOrder = await orderRepository.updateStatusIfCurrentStatusIs(
             orderId,
-            "Processing",
-            "Placed",
+            "PROCESSING",
+            "PLACED",
             {
                aggregateType: "Order",
                eventType: EVENTS.ORDER_PLACED,
                payload: {
                   orderId,
                   paymentId,
-                  status: "Placed",
+                  status: "PLACED",
                },
             }
          );
@@ -355,7 +355,7 @@ class OrderSaga {
          if (updatedOrder) {
             if (!updatedOrder.skipped) {
                console.log(
-                  `💰 Payment succeeded for order ${orderId}, status 'Processing' -> 'Placed' (Inventory might be lagging)`
+                  `💰 Payment succeeded for order ${orderId}, status 'PROCESSING' -> 'PLACED' (Inventory might be lagging)`
                );
             }
             return;
@@ -365,16 +365,16 @@ class OrderSaga {
          const currentOrder = await orderRepository.findById(orderId);
          const currentStatus = currentOrder?.status;
 
-         if (currentStatus === "Placed") {
+         if (currentStatus === "PLACED") {
             console.log(
-               `💰 Payment succeeded for order ${orderId}, but already 'Placed' - ignoring`
+               `💰 Payment succeeded for order ${orderId}, but already 'PLACED' - ignoring`
             );
             return;
          }
 
          // If order is not in a valid state to be placed, we must fail it (and refund)
          const reason = `Order status is '${currentStatus}', cannot transition to Placed`;
-         await orderRepository.updateStatusWithOutbox(orderId, "Failed", {
+         await orderRepository.updateStatusWithOutbox(orderId, "FAILED", {
             aggregateType: "Order",
             eventType: EVENTS.ORDER_FAILED,
             payload: {
@@ -406,7 +406,7 @@ class OrderSaga {
    async handlePaymentFailed(event) {
       const { orderId, reason } = event.payload;
       try {
-         await orderRepository.updateStatusWithOutbox(orderId, "Failed", {
+         await orderRepository.updateStatusWithOutbox(orderId, "FAILED", {
             aggregateType: "Order",
             eventType: EVENTS.ORDER_FAILED,
             payload: {

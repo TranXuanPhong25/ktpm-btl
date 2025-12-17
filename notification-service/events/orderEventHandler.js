@@ -71,7 +71,7 @@ class OrderEventHandler {
          async (event) => {
             try {
                if (event.eventType === EVENTS.ORDER_PLACED) {
-                  await this.handleOrderSuccessful(event);
+                  await this.handleOrderPlaced(event);
                } else if (event.eventType === EVENTS.ORDER_FAILED) {
                   await this.handleOrderFailed(event);
                } else if (event.eventType === EVENTS.ORDER_CREATED) {

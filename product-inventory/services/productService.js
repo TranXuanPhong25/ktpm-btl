@@ -30,7 +30,7 @@ class ProductService {
             {
                aggregateId: product.id.toString(),
                aggregateType: "Product",
-               eventType: "stock.updated",
+               eventType: "inventory.stock.updated",
                payload: [{ id: product.id, stock: product.stock }],
             },
             tx
@@ -106,7 +106,7 @@ class ProductService {
             {
                aggregateId: product.id.toString(),
                aggregateType: "Product",
-               eventType: "stock.updated",
+               eventType: "inventory.stock.updated",
                payload: [{ id: product.id, stock: -1 }],
             },
             tx
@@ -174,7 +174,7 @@ class ProductService {
          // Update stock (add or deduct)
          const updatedProducts =
             await productRepository.bulkUpdateStockInTransaction(updates, tx);
-         let eventType = "stock.updated";
+         let eventType = "inventory.stock.updated";
          let aggregateId = ids.join(",");
          if (orderId) {
             eventType =
