@@ -21,7 +21,7 @@ static_resources:
                                     cluster_name: jaeger
                               service_name: auth-service
                         random_sampling:
-                           value: 100.0
+                           value: 1.0
                      route_config:
                         name: local_route
                         virtual_hosts:
@@ -74,7 +74,7 @@ static_resources:
       - name: auth_service
         connect_timeout: 0.25s
         type: strict_dns
-        lb_policy: round_robin
+        lb_policy: least_request
         load_assignment:
            cluster_name: auth_service
            endpoints:

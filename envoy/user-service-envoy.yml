@@ -21,7 +21,7 @@ static_resources:
                                     cluster_name: jaeger
                               service_name: user-service
                         random_sampling:
-                           value: 100.0
+                           value: 1.0
                      route_config:
                         name: local_route
                         virtual_hosts:
@@ -90,7 +90,7 @@ static_resources:
                                     cluster_name: jaeger
                               service_name: user-service-grpc
                         random_sampling:
-                           value: 100.0
+                           value: 1.0
                      route_config:
                         name: local_route
                         virtual_hosts:
