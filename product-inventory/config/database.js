@@ -7,7 +7,7 @@ class Database {
       const options = {
          dialect: "postgres",
          logging: false,
-         pool: { max: 200, min: 20, idle: 30000, acquire: 60000 },
+         pool: { max: 45, min: 5, idle: 10000, acquire: 30000 },
          dialectOptions: { connectTimeout: 45000 },
       };
 

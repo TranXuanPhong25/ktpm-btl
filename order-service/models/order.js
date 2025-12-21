@@ -6,7 +6,7 @@ const orderItemSchema = new mongoose.Schema({
 });
 
 const orderSchema = new mongoose.Schema({
-   userId: { type: String, required: true },
+   userId: { type: String, required: true, index: true },
    items: [orderItemSchema],
    totalAmount: { type: Number, required: true },
    status: { type: String, default: "Pending" },

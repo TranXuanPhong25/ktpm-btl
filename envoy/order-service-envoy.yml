@@ -11,17 +11,17 @@ static_resources:
                   typed_config:
                      "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
                      stat_prefix: ingress_http
-                     tracing:
-                        provider:
-                           name: envoy.tracers.opentelemetry
-                           typed_config:
-                              "@type": type.googleapis.com/envoy.config.trace.v3.OpenTelemetryConfig
-                              grpc_service:
-                                 envoy_grpc:
-                                    cluster_name: jaeger
-                              service_name: order-service
-                        random_sampling:
-                           value: 100.0
+                     # tracing:
+                     #    provider:
+                     #       name: envoy.tracers.opentelemetry
+                     #       typed_config:
+                     #          "@type": type.googleapis.com/envoy.config.trace.v3.OpenTelemetryConfig
+                     #          grpc_service:
+                     #             envoy_grpc:
+                     #                cluster_name: jaeger
+                     #          service_name: order-service
+                     #    random_sampling:
+                     #       value: 1.0
                      route_config:
                         name: local_route
                         virtual_hosts:
@@ -47,7 +47,7 @@ static_resources:
       - name: order_service
         connect_timeout: 0.25s
         type: strict_dns
-        lb_policy: round_robin
+        lb_policy: least_request
         load_assignment:
            cluster_name: order_service
            endpoints:

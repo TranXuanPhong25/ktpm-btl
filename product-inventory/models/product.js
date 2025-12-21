@@ -15,12 +15,10 @@ const Product = sequelize.define("Product", {
    },
    price: {
       type: DataTypes.DECIMAL(10, 2),
-      allowNull: false,
    },
    stock: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
-      allowNull: false,
       validate: {
          min: {
             args: [0],
