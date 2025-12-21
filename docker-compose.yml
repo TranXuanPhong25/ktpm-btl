@@ -111,7 +111,7 @@ services:
          - products-inventory-pg
          - rabbitmq
       deploy:
-         replicas: 1
+         replicas: 2
          resources:
             limits:
                cpus: "1.0"
@@ -134,7 +134,7 @@ services:
          rabbitmq:
             condition: service_healthy
       deploy:
-         replicas: 1
+         replicas: 2
          resources:
             limits:
                cpus: "1.0"
@@ -334,7 +334,7 @@ services:
          rabbitmq:
             condition: service_healthy
       deploy:
-         replicas: 1
+         replicas: 2
          resources:
             limits:
                cpus: "1.0"
@@ -525,6 +525,8 @@ services:
          - NODEMAILER_EMAIL=${NODEMAILER_EMAIL}
          - NODEMAILER_PASSWORD=${NODEMAILER_PASSWORD}
          - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
+         - NODE_ENV=test
+         - SIMULATE_EMAIL_ERROR=true
       ports:
          - "51111:5005"
       volumes:
