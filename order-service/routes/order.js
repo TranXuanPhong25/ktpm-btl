@@ -17,6 +17,7 @@ router.post("/:userId", async (req, res) => {
       const order = await orderService.placeOrder(userId, items);
       res.status(201).json(order);
    } catch (err) {
+      console.error(err);
       if (
          err.message.includes("required") ||
          err.message.includes("Invalid") ||
