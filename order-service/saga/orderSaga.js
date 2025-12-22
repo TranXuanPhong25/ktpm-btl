@@ -212,50 +212,83 @@ class OrderSaga {
       const { aggregateId: orderId } = event;
 
       // Try to transition from Processing -> Created using Atomic Conditional Update
-      try {
-         const updatedOrder =
-            await orderRepository.updateStatusIfCurrentStatusIs(
-               orderId,
-               "PROCESSING", // Expected current status
-               "CREATED", // New status
-               {
-                  aggregateType: "Order",
-                  eventType: EVENTS.ORDER_CREATED,
-                  payload: {
-                     orderId,
-                     status: "CREATED",
-                     // Note: userId, items, totalAmount will be filled by repository from the DB document
-                  },
-               }
-            );
+      // with retry logic for write conflicts
+      const maxRetries = 5;
+      const baseDelay = 50; // ms
 
-         if (updatedOrder) {
-            if (updatedOrder.skipped) return; // Idempotency handled
-            console.log(
-               `📦 Inventory reserved for order ${orderId}, status was 'Processing' -> 'Created'`
-            );
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+         try {
+            const updatedOrder =
+               await orderRepository.updateStatusIfCurrentStatusIs(
+                  orderId,
+                  "PROCESSING", // Expected current status
+                  "CREATED", // New status
+                  {
+                     aggregateType: "Order",
+                     eventType: EVENTS.ORDER_CREATED,
+                     payload: {
+                        orderId,
+                        status: "CREATED",
+                        // Note: userId, items, totalAmount will be filled by repository from the DB document
+                     },
+                  }
+               );
+
+            if (updatedOrder) {
+               if (updatedOrder.skipped) return; // Idempotency handled
+               console.log(
+                  `📦 Inventory reserved for order ${orderId}, status was 'Processing' -> 'Created'`
+               );
+               return;
+            }
+
+            // If update failed, it means status was NOT 'Processing' (or order missing)
+            // We fetch just for logging purposes to understand what happened
+            const currentOrder = await orderRepository.findById(orderId);
+            const currentStatus = currentOrder?.status?.toUpperCase();
+
+            if (currentStatus === "PLACED") {
+               console.log(
+                  `📦 Inventory reserved for order ${orderId}, but status is already 'Placed' - ignoring (Race condition handled)`
+               );
+            } else {
+               console.warn(
+                  `⚠️ Inventory reserved for order ${orderId}, but status is '${currentStatus}' (expected 'Processing') - ignoring`
+               );
+            }
             return;
-         }
+         } catch (err) {
+            // Check if this is a write conflict error that can be retried
+            const isWriteConflict =
+               err.message.includes("Write conflict") ||
+               err.message.includes("WriteConflict");
 
-         // If update failed, it means status was NOT 'Processing' (or order missing)
-         // We fetch just for logging purposes to understand what happened
-         const currentOrder = await orderRepository.findById(orderId);
-         const currentStatus = currentOrder?.status?.toUpperCase();
+            if (isWriteConflict && attempt < maxRetries) {
+               // Exponential backoff with jitter
+               const delay =
+                  baseDelay * Math.pow(2, attempt) + Math.random() * 50;
+               console.warn(
+                  `Write conflict for order ${orderId}, retrying (${attempt + 1}/${maxRetries}) after ${delay.toFixed(0)}ms`
+               );
+               await new Promise((resolve) => setTimeout(resolve, delay));
+               continue;
+            }
 
-         if (currentStatus === "PLACED") {
-            console.log(
-               `📦 Inventory reserved for order ${orderId}, but status is already 'Placed' - ignoring (Race condition handled)`
+            // Non-retryable error or max retries exceeded
+            console.error(
+               `Failed to handle inventory reserved for order ${orderId}:`,
+               err.message
             );
-         } else {
-            console.warn(
-               `⚠️ Inventory reserved for order ${orderId}, but status is '${currentStatus}' (expected 'Processing') - ignoring`
-            );
+
+            if (isWriteConflict && attempt === maxRetries) {
+               console.error(
+                  `Max retries (${maxRetries}) exceeded for order ${orderId} due to write conflicts`
+               );
+            }
+
+            // Re-throw to trigger message requeue
+            throw err;
          }
-      } catch (err) {
-         console.error(
-            `Failed to handle inventory reserved for order ${orderId}:`,
-            err.message
-         );
       }
    }
 
@@ -302,100 +335,128 @@ class OrderSaga {
    async handlePaymentSucceeded(event) {
       const { orderId, paymentId } = event.payload;
 
-      try {
-         // 1. Try transition from 'Created' -> 'Placed'
-         let updatedOrder = await orderRepository.updateStatusIfCurrentStatusIs(
-            orderId,
-            "CREATED",
-            "PLACED",
-            {
+      const maxRetries = 5;
+      const baseDelay = 50;
+
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+         try {
+            // 1. Try transition from 'Created' -> 'Placed'
+            let updatedOrder =
+               await orderRepository.updateStatusIfCurrentStatusIs(
+                  orderId,
+                  "CREATED",
+                  "PLACED",
+                  {
+                     aggregateType: "Order",
+                     eventType: EVENTS.ORDER_PLACED,
+                     payload: {
+                        orderId,
+                        paymentId,
+                        status: "PLACED",
+                     },
+                  }
+               );
+
+            if (updatedOrder) {
+               if (!updatedOrder.skipped) {
+                  console.log(
+                     `💰 Payment succeeded for order ${orderId}, status 'CREATED' -> 'PLACED'`
+                  );
+               }
+               return;
+            }
+
+            // 2. If failed, try transition from 'Processing' -> 'Placed' (Race condition: Payment faster than Inventory)
+            // Note: In a strict Saga, we might want to wait for Inventory, but here we allow completing if Payment is done.
+            // However, usually we want Inventory Reserved FIRST.
+            // If we allow Processing -> Placed, we assume Inventory will eventually succeed.
+            // Let's stick to the logic: If it's Processing, we can also move to Placed (assuming Inventory is implicitly OK or will be checked).
+            // Actually, if Payment succeeds but Inventory hasn't returned yet, we should probably wait?
+            // But the original code allowed "pending" (Processing) or "created" to move to Placed.
+            // Let's support 'Processing' -> 'Placed' as well for robustness against message ordering.
+
+            updatedOrder = await orderRepository.updateStatusIfCurrentStatusIs(
+               orderId,
+               "PROCESSING",
+               "PLACED",
+               {
+                  aggregateType: "Order",
+                  eventType: EVENTS.ORDER_PLACED,
+                  payload: {
+                     orderId,
+                     paymentId,
+                     status: "PLACED",
+                  },
+               }
+            );
+
+            if (updatedOrder) {
+               if (!updatedOrder.skipped) {
+                  console.log(
+                     `💰 Payment succeeded for order ${orderId}, status 'PROCESSING' -> 'PLACED' (Inventory might be lagging)`
+                  );
+               }
+               return;
+            }
+
+            // 3. If both failed, check current status to decide if we need to fail/refund
+            const currentOrder = await orderRepository.findById(orderId);
+            const currentStatus = currentOrder?.status;
+
+            if (currentStatus === "PLACED") {
+               console.log(
+                  `💰 Payment succeeded for order ${orderId}, but already 'PLACED' - ignoring`
+               );
+               return;
+            }
+
+            // If order is not in a valid state to be placed, we must fail it (and refund)
+            const reason = `Order status is '${currentStatus}', cannot transition to Placed`;
+            await orderRepository.updateStatusWithOutbox(orderId, "FAILED", {
                aggregateType: "Order",
-               eventType: EVENTS.ORDER_PLACED,
+               eventType: EVENTS.ORDER_FAILED,
                payload: {
                   orderId,
                   paymentId,
-                  status: "PLACED",
+                  userId: currentOrder ? currentOrder.userId : null,
+                  items: currentOrder ? currentOrder.items : [],
+                  totalAmount: currentOrder ? currentOrder.totalAmount : 0,
+                  status: "FAILED",
+                  reason,
+                  timestamp: new Date().toISOString(),
                },
-            }
-         );
-
-         if (updatedOrder) {
-            if (!updatedOrder.skipped) {
-               console.log(
-                  `💰 Payment succeeded for order ${orderId}, status 'CREATED' -> 'PLACED'`
-               );
-            }
-            return;
-         }
-
-         // 2. If failed, try transition from 'Processing' -> 'Placed' (Race condition: Payment faster than Inventory)
-         // Note: In a strict Saga, we might want to wait for Inventory, but here we allow completing if Payment is done.
-         // However, usually we want Inventory Reserved FIRST.
-         // If we allow Processing -> Placed, we assume Inventory will eventually succeed.
-         // Let's stick to the logic: If it's Processing, we can also move to Placed (assuming Inventory is implicitly OK or will be checked).
-         // Actually, if Payment succeeds but Inventory hasn't returned yet, we should probably wait?
-         // But the original code allowed "pending" (Processing) or "created" to move to Placed.
-         // Let's support 'Processing' -> 'Placed' as well for robustness against message ordering.
-
-         updatedOrder = await orderRepository.updateStatusIfCurrentStatusIs(
-            orderId,
-            "PROCESSING",
-            "PLACED",
-            {
-               aggregateType: "Order",
-               eventType: EVENTS.ORDER_PLACED,
-               payload: {
-                  orderId,
-                  paymentId,
-                  status: "PLACED",
-               },
-            }
-         );
-
-         if (updatedOrder) {
-            if (!updatedOrder.skipped) {
-               console.log(
-                  `💰 Payment succeeded for order ${orderId}, status 'PROCESSING' -> 'PLACED' (Inventory might be lagging)`
-               );
-            }
-            return;
-         }
-
-         // 3. If both failed, check current status to decide if we need to fail/refund
-         const currentOrder = await orderRepository.findById(orderId);
-         const currentStatus = currentOrder?.status;
-
-         if (currentStatus === "PLACED") {
+            });
             console.log(
-               `💰 Payment succeeded for order ${orderId}, but already 'PLACED' - ignoring`
+               `📤 ORDER_FAILED event written to outbox for order ${orderId} (paymentId ${paymentId}) – reason: ${reason}`
             );
             return;
-         }
+         } catch (err) {
+            const isWriteConflict =
+               err.message.includes("Write conflict") ||
+               err.message.includes("WriteConflict");
 
-         // If order is not in a valid state to be placed, we must fail it (and refund)
-         const reason = `Order status is '${currentStatus}', cannot transition to Placed`;
-         await orderRepository.updateStatusWithOutbox(orderId, "FAILED", {
-            aggregateType: "Order",
-            eventType: EVENTS.ORDER_FAILED,
-            payload: {
-               orderId,
-               paymentId,
-               userId: currentOrder ? currentOrder.userId : null,
-               items: currentOrder ? currentOrder.items : [],
-               totalAmount: currentOrder ? currentOrder.totalAmount : 0,
-               status: "FAILED",
-               reason,
-               timestamp: new Date().toISOString(),
-            },
-         });
-         console.log(
-            `📤 ORDER_FAILED event written to outbox for order ${orderId} (paymentId ${paymentId}) – reason: ${reason}`
-         );
-      } catch (err) {
-         console.error(
-            `Failed to handle payment succeeded for order ${orderId}:`,
-            err.message
-         );
+            if (isWriteConflict && attempt < maxRetries) {
+               const delay =
+                  baseDelay * Math.pow(2, attempt) + Math.random() * 50;
+               console.warn(
+                  `⚠️ Write conflict for payment succeeded ${orderId}, retrying (${attempt + 1}/${maxRetries}) after ${delay.toFixed(0)}ms`
+               );
+               await new Promise((resolve) => setTimeout(resolve, delay));
+               continue;
+            }
+
+            console.error(
+               `Failed to handle payment succeeded for order ${orderId}:`,
+               err.message
+            );
+
+            if (isWriteConflict && attempt === maxRetries) {
+               console.error(
+                  `❌ Max retries (${maxRetries}) exceeded for payment succeeded ${orderId}`
+               );
+            }
+            throw err;
+         }
       }
    }
 

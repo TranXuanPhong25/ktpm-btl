@@ -75,6 +75,28 @@ static_resources:
         connect_timeout: 0.25s
         type: strict_dns
         lb_policy: round_robin
+        # Circuit breaker thresholds - set very high for load testing
+        circuit_breakers:
+           thresholds:
+              - priority: DEFAULT
+                max_connections: 100000
+                max_pending_requests: 100000
+                max_requests: 100000
+                max_retries: 10
+        # Connection pool settings
+        common_lb_config:
+           healthy_panic_threshold:
+              value: 50.0
+        typed_extension_protocol_options:
+           envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+              "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+              common_http_protocol_options:
+                 idle_timeout: 300s
+                 max_connection_duration: 600s
+                 max_requests_per_connection: 100
+              explicit_http_config:
+                 http_protocol_options:
+                    accept_http_10: true
         load_assignment:
            cluster_name: product_catalog
            endpoints:

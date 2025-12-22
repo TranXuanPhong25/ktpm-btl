@@ -1,6 +1,6 @@
 const Redis = require("ioredis");
 
-// Redis configuration with proper timeouts and reconnection strategy
+// Redis configuration with connection pooling and proper timeouts
 const redis = new Redis(
    process.env.REDIS_DATABASE_URI || "redis://localhost:6379",
    {
@@ -8,6 +8,9 @@ const redis = new Redis(
       enableReadyCheck: true,
       connectTimeout: 2000, // 2 seconds connect timeout
       commandTimeout: 1000, // 1 second command timeout
+      enableOfflineQueue: false, // Don't queue commands when disconnected
+      enableAutoPipelining: true, // Automatic batching for better performance
+      maxLoadingRetryTime: 5000,
       retryStrategy(times) {
          if (times > 3) {
             console.error("Redis connection failed after 3 retries");
