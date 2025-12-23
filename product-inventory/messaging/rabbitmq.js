@@ -107,7 +107,7 @@ class RabbitMQConnection {
                      });
                   } catch (err) {
                      // Handle unique constraint violation (race condition)
-                     if (err.name === 'SequelizeUniqueConstraintError') {
+                     if (err.name === "SequelizeUniqueConstraintError") {
                         console.log(`⚠️ Message ${messageId} was processed concurrently, skipping`);
                      } else {
                         throw err;
