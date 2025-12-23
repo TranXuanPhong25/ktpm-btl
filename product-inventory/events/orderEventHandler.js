@@ -16,11 +16,11 @@ class OrderEventHandler {
          await this.rabbitMQ.assertExchange(EXCHANGES.INVENTORY);
 
          await this.rabbitMQ.assertQueue(QUEUES.ORDER_TO_INVENTORY);
-         await this.rabbitMQ.bindQueue(
-            QUEUES.ORDER_TO_INVENTORY,
-            EXCHANGES.ORDER,
-            EVENTS.ORDER_CREATED
-         );
+         // await this.rabbitMQ.bindQueue(
+         //    QUEUES.ORDER_TO_INVENTORY,
+         //    EXCHANGES.ORDER,
+         //    EVENTS.ORDER_CREATED
+         // );
          await this.rabbitMQ.bindQueue(
             QUEUES.ORDER_TO_INVENTORY,
             EXCHANGES.ORDER,
@@ -55,8 +55,7 @@ class OrderEventHandler {
                console.log(
                   `Received Order Created event for order: ${event.payload.orderId}`
                );
-            }
-            if (event.eventType === EVENTS.ORDER_PROCESSING) {
+            } else if (event.eventType === EVENTS.ORDER_PROCESSING) {
                await this.handleOrderProcessing(event);
             }
          } catch (error) {
@@ -79,7 +78,7 @@ class OrderEventHandler {
                );
             }
          },
-         true
+         false
       );
    }
 
@@ -94,7 +93,7 @@ class OrderEventHandler {
 
       if (existingEvent) {
          console.log(
-            `⚠️ Order ${aggregateId} already processed (${existingEvent.eventType}), skipping`
+            `[INVENTORY] Order ${aggregateId} already processed (${existingEvent.eventType}), skipping`
          );
          return;
       }

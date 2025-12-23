@@ -209,6 +209,7 @@ services:
          - POLL_INTERVAL_MS=500
          - BATCH_SIZE=100
       volumes:
+         - ./unified-relay-publisher:/app
          - ./unified-relay-publisher/config/routing.yml:/app/config/routing.yml:ro
       networks:
          - ecommerce-network
@@ -434,6 +435,7 @@ services:
          - POLL_INTERVAL_MS=500
          - BATCH_SIZE=100
       volumes:
+         - ./unified-relay-publisher:/app
          - ./unified-relay-publisher/config/routing.yml:/app/config/routing.yml:ro
       networks:
          - ecommerce-network
@@ -463,6 +465,7 @@ services:
          - POLL_INTERVAL_MS=500
          - BATCH_SIZE=100
       volumes:
+         - ./unified-relay-publisher:/app
          - ./unified-relay-publisher/config/routing.yml:/app/config/routing.yml:ro
       networks:
          - ecommerce-network
@@ -495,6 +498,7 @@ services:
          - RETENTION_HOURS=24
          - MAX_
       volumes:
+         - ./unified-relay-publisher:/app
          - ./unified-relay-publisher/config/routing.yml:/app/config/routing.yml:ro
       networks:
          - ecommerce-network

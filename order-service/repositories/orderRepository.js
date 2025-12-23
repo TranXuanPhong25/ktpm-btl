@@ -20,19 +20,20 @@ class OrderRepository {
          const order = new Order(orderData);
          await order.save({ session });
 
-         // Check if event already exists in outbox (idempotency)
-         const existingEvent = await Outbox.findOne({
-            aggregateId: order._id.toString(),
-            eventType: outboxData.eventType,
-         }).session(session);
+         // no need to check idempotency here as order is just created
+         // // Check if event already exists in outbox (idempotency)
+         // const existingEvent = await Outbox.findOne({
+         //    aggregateId: order._id.toString(),
+         //    eventType: outboxData.eventType,
+         // }).session(session);
 
-         if (existingEvent) {
-            console.log(
-               `⚠️ Event ${outboxData.eventType} already exists for order: ${order._id}, skipping outbox`
-            );
-            await session.commitTransaction();
-            return order;
-         }
+         // if (existingEvent) {
+         //    console.log(
+         //       `⚠️ Event ${outboxData.eventType} already exists for order: ${order._id}, skipping outbox`
+         //    );
+         //    await session.commitTransaction();
+         //    return order;
+         // }
 
          const outbox = new Outbox({
             ...outboxData,
@@ -144,7 +145,6 @@ class OrderRepository {
             { status: newStatus },
             { new: true, session }
          );
-
          if (!order) {
             // Update failed because document not found OR status didn't match
             await session.abortTransaction();

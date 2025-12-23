@@ -2,6 +2,7 @@ const outboxRepository = require("../repositories/outboxRepository");
 const productRepository = require("../repositories/productRepository");
 const outboxService = require("./outboxService");
 const transaction = require("../repositories/transaction");
+const { EVENTS } = require("../messaging/constants");
 
 class ProductService {
    /**
@@ -174,13 +175,13 @@ class ProductService {
          // Update stock (add or deduct)
          const updatedProducts =
             await productRepository.bulkUpdateStockInTransaction(updates, tx);
-         let eventType = "inventory.stock.updated";
+         let eventType = EVENTS.INVENTORY_STOCK_UPDATED;
          let aggregateId = ids.join(",");
          if (orderId) {
             eventType =
                updates[0].quantity < 0
-                  ? "inventory.reserved"
-                  : "inventory.restored";
+                  ? EVENTS.INVENTORY_RESERVED
+                  : EVENTS.INVENTORY_RESTORED;
             aggregateId = orderId;
          }
          const stockUpdateOutbox = {

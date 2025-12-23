@@ -53,123 +53,6 @@ class OrderSaga {
       }
    }
 
-   /**
-    * Publish OrderCreated event via outbox pattern
-    */
-   async publishOrderCreated(order) {
-      if (!this.isInitialized) {
-         throw new Error("Order Saga not initialized");
-      }
-
-      const orderId = order._id.toString();
-
-      // Check if event already exists in outbox (idempotency)
-      const existingEvent = await Outbox.findOne({
-         aggregateId: orderId,
-         eventType: EVENTS.ORDER_CREATED,
-      });
-
-      if (existingEvent) {
-         console.log(
-            `⚠️ OrderCreated event already exists for order: ${orderId}, skipping`
-         );
-         return;
-      }
-
-      const event = {
-         orderId,
-         userId: order.userId,
-         items: order.items,
-         totalAmount: order.totalAmount,
-         timestamp: new Date().toISOString(),
-      };
-
-      // Write to outbox instead of direct publish
-      await Outbox.create({
-         aggregateId: orderId,
-         aggregateType: "Order",
-         eventType: EVENTS.ORDER_CREATED,
-         payload: JSON.stringify(event),
-      });
-   }
-
-   async publishOrderPlaced(order) {
-      if (!this.isInitialized) {
-         throw new Error("Order Saga not initialized");
-      }
-
-      const orderId = order._id.toString();
-
-      // Check if event already exists in outbox (idempotency)
-      const existingEvent = await Outbox.findOne({
-         aggregateId: orderId,
-         eventType: EVENTS.ORDER_PLACED,
-      });
-
-      if (existingEvent) {
-         console.log(
-            `⚠️ OrderPlaced event already exists for order: ${orderId}, skipping`
-         );
-         return;
-      }
-
-      const event = {
-         orderId,
-         userId: order.userId,
-         items: order.items,
-         totalAmount: order.totalAmount,
-         timestamp: new Date().toISOString(),
-      };
-
-      // Write to outbox instead of direct publish
-      await Outbox.create({
-         aggregateId: orderId,
-         aggregateType: "Order",
-         eventType: EVENTS.ORDER_PLACED,
-         payload: JSON.stringify(event),
-      });
-   }
-   async publishOrderFailed(order, session) {
-      if (!this.isInitialized) {
-         throw new Error("Order Saga not initialized");
-      }
-
-      const orderId = order._id.toString();
-
-      // Check if event already exists in outbox (idempotency)
-      const existingEvent = await Outbox.findOne({
-         aggregateId: orderId,
-         eventType: EVENTS.ORDER_FAILED,
-      });
-
-      if (existingEvent) {
-         console.log(
-            `⚠️ OrderFailed event already exists for order: ${orderId}, skipping`
-         );
-         return;
-      }
-
-      const event = {
-         orderId,
-         userId: order.userId,
-         items: order.items,
-         totalAmount: order.totalAmount,
-         reason: order.reason,
-         timestamp: new Date().toISOString(),
-      };
-
-      // Write to outbox instead of direct publish
-      await Outbox.create(
-         {
-            aggregateId: orderId,
-            aggregateType: "Order",
-            eventType: EVENTS.ORDER_FAILED,
-            payload: JSON.stringify(event),
-         },
-         session
-      );
-   }
-
    async startListening() {
       await this.rabbitMQ.consume(QUEUES.INVENTORY_TO_ORDER, async (event) => {
          try {
@@ -215,7 +98,10 @@ class OrderSaga {
       // with retry logic for write conflicts
       const maxRetries = 5;
       const baseDelay = 50; // ms
-
+      if (!orderId) {
+         console.error("Inventory Reserved event missing orderId");
+         return;
+      }
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
          try {
             const updatedOrder =
@@ -268,7 +154,7 @@ class OrderSaga {
                const delay =
                   baseDelay * Math.pow(2, attempt) + Math.random() * 50;
                console.warn(
-                  `Write conflict for order ${orderId}, retrying (${attempt + 1}/${maxRetries}) after ${delay.toFixed(0)}ms`
+                  `Write conflict for order ${orderId}, message ${err.message}, retrying (${attempt + 1}/${maxRetries}) after ${delay.toFixed(0)}ms`
                );
                await new Promise((resolve) => setTimeout(resolve, delay));
                continue;

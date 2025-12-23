@@ -18,4 +18,4 @@ RUN mkdir -p /app/config
 USER node
 
 # Start the service
-CMD ["node", "index.js"]
+CMD ["npm", "run", "dev"]
