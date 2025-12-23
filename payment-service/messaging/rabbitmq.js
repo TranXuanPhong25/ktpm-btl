@@ -54,8 +54,9 @@ class RabbitMQConnection {
             if (msg) {
                try {
                   const event = JSON.parse(msg.content.toString());
+                  // Use messageId from properties, fallback to deterministic ID based on content
                   const messageId = msg.properties.messageId || 
-                     `${event.aggregateId}-${event.eventType}-${msg.properties.timestamp}`;
+                     `${event.aggregateId}-${event.eventType}`;
                   
                   // Check if message already processed (idempotency)
                   const alreadyProcessed = await ProcessedMessage.findOne({ messageId });

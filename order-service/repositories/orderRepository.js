@@ -157,6 +157,8 @@ class OrderRepository {
             await outbox.save({ session });
          } catch (outboxErr) {
             // Handle duplicate key error (idempotency)
+            // If outbox entry exists, this transition was already recorded.
+            // Abort to avoid duplicate state change.
             if (outboxErr.code === 11000) {
                console.log(
                   `⚠️ Event ${outboxData.eventType} already exists for order: ${orderId}, skipping`

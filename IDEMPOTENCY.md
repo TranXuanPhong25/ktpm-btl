@@ -69,6 +69,11 @@ This approach:
 messageId: `${message.aggregateId}-${message.eventType}`
 ```
 
+**Design Decision**: The messageId is deterministic based on the aggregate and event type, NOT the timestamp. This ensures:
+- Same event published twice (e.g., due to outbox relay retry) gets the same messageId
+- Consumer can detect and skip duplicate deliveries
+- Limitation: Only one event of each type per aggregate is tracked. This is acceptable because the outbox pattern already prevents duplicate events at the source.
+
 #### b) Created ProcessedMessage Model
 Tracks all consumed messages to prevent reprocessing:
 
@@ -77,8 +82,9 @@ Tracks all consumed messages to prevent reprocessing:
 
 #### c) Updated Consumers to Check and Record Messages
 ```javascript
+// Use messageId from properties, fallback to deterministic ID
 const messageId = msg.properties.messageId || 
-   `${content.aggregateId}-${content.eventType}-${msg.properties.timestamp}`;
+   `${content.aggregateId}-${content.eventType}`;
 
 // Check if already processed
 const alreadyProcessed = await ProcessedMessage.findOne({ messageId });
@@ -90,7 +96,7 @@ if (alreadyProcessed) {
 
 // Process message...
 
-// Mark as processed
+// Mark as processed (with duplicate key error handling)
 await ProcessedMessage.create({ messageId, eventType, aggregateId });
 ```
 
