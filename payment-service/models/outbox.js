@@ -31,6 +31,8 @@ const outboxSchema = new mongoose.Schema({
    },
 });
 
+// Unique compound index to prevent duplicate events (idempotency)
+outboxSchema.index({ aggregateId: 1, eventType: 1 }, { unique: true });
 outboxSchema.index({ expireAt: 1 }, { expireAfterSeconds: 0 });
 outboxSchema.index({ status: 1, createdAt: 1 });
 

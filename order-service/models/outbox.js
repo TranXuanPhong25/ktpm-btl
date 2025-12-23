@@ -32,6 +32,8 @@ const outboxSchema = new mongoose.Schema({
    },
 });
 
+// Unique compound index to prevent duplicate events (idempotency)
+outboxSchema.index({ aggregateId: 1, eventType: 1 }, { unique: true });
 // TTL index - MongoDB will automatically delete documents when expireAt is reached
 outboxSchema.index({ expireAt: 1 }, { expireAfterSeconds: 0 });
 // Index for efficient querying of pending events

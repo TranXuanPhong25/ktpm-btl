@@ -20,25 +20,25 @@ class OrderRepository {
          const order = new Order(orderData);
          await order.save({ session });
 
-         // Check if event already exists in outbox (idempotency)
-         const existingEvent = await Outbox.findOne({
-            aggregateId: order._id.toString(),
-            eventType: outboxData.eventType,
-         }).session(session);
-
-         if (existingEvent) {
-            console.log(
-               `⚠️ Event ${outboxData.eventType} already exists for order: ${order._id}, skipping outbox`
-            );
-            await session.commitTransaction();
-            return order;
-         }
-
          const outbox = new Outbox({
             ...outboxData,
             aggregateId: order._id.toString(),
          });
-         await outbox.save({ session });
+         
+         try {
+            await outbox.save({ session });
+         } catch (outboxErr) {
+            // Handle duplicate key error (idempotency)
+            if (outboxErr.code === 11000) {
+               console.log(
+                  `⚠️ Event ${outboxData.eventType} already exists for order: ${order._id}, skipping outbox`
+               );
+               await session.commitTransaction();
+               return order;
+            }
+            throw outboxErr;
+         }
+         
          await session.commitTransaction();
          return order;
       } catch (err) {
@@ -120,20 +120,6 @@ class OrderRepository {
       const session = await mongoose.startSession();
       session.startTransaction();
       try {
-         // Check idempotency first
-         const existingEvent = await Outbox.findOne({
-            aggregateId: String(orderId),
-            eventType: outboxData.eventType,
-         }).session(session);
-
-         if (existingEvent) {
-            console.log(
-               `⚠️ Event ${outboxData.eventType} already exists for order: ${orderId}, skipping`
-            );
-            await session.abortTransaction();
-            return { skipped: true };
-         }
-
          // ATOMIC UPDATE: Find AND Update in one go with condition
          // Using regex for case-insensitive status check if needed, but strict string match is safer for state machine
          const order = await Order.findOneAndUpdate(
@@ -166,7 +152,20 @@ class OrderRepository {
             payload: JSON.stringify(outboxPayload),
             aggregateId: String(orderId),
          });
-         await outbox.save({ session });
+         
+         try {
+            await outbox.save({ session });
+         } catch (outboxErr) {
+            // Handle duplicate key error (idempotency)
+            if (outboxErr.code === 11000) {
+               console.log(
+                  `⚠️ Event ${outboxData.eventType} already exists for order: ${orderId}, skipping`
+               );
+               await session.abortTransaction();
+               return { skipped: true };
+            }
+            throw outboxErr;
+         }
 
          await session.commitTransaction();
          return order;
@@ -182,25 +181,12 @@ class OrderRepository {
       const session = await mongoose.startSession();
       session.startTransaction();
       try {
-         // Check if event already exists in outbox (idempotency)
-         const existingEvent = await Outbox.findOne({
-            aggregateId: String(orderId),
-            eventType: outboxData.eventType,
-         }).session(session);
-
-         if (existingEvent) {
-            console.log(
-               `⚠️ Event ${outboxData.eventType} already exists for order: ${orderId}, skipping`
-            );
-            await session.abortTransaction();
-            return;
-         }
-
          const order = await Order.findByIdAndUpdate(
             orderId,
             { status },
             { new: true, session }
          );
+         
          const outboxPayload = {
             ...outboxData.payload,
             userId: order.userId,
@@ -209,12 +195,27 @@ class OrderRepository {
             status: status,
             timestamp: new Date().toISOString(),
          };
+         
          const outbox = new Outbox({
             ...outboxData,
             payload: JSON.stringify(outboxPayload),
             aggregateId: String(orderId),
          });
-         await outbox.save({ session });
+         
+         try {
+            await outbox.save({ session });
+         } catch (outboxErr) {
+            // Handle duplicate key error (idempotency)
+            if (outboxErr.code === 11000) {
+               console.log(
+                  `⚠️ Event ${outboxData.eventType} already exists for order: ${orderId}, skipping`
+               );
+               await session.commitTransaction();
+               return;
+            }
+            throw outboxErr;
+         }
+         
          await session.commitTransaction();
       } catch (err) {
          await session.abortTransaction();

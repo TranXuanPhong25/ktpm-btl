@@ -43,19 +43,6 @@ class PaymentEventHandler {
     * Publish payment succeeded event via outbox
     */
    async publishPaymentSucceeded(orderId, userId, amount, paymentResult) {
-      // Check if event already exists in outbox (idempotency)
-      const existingEvent = await Outbox.findOne({
-         aggregateId: orderId,
-         eventType: EVENTS.PAYMENT_SUCCEEDED,
-      });
-
-      if (existingEvent) {
-         console.log(
-            `⚠️ PaymentSucceeded event already exists for order: ${orderId}, skipping`
-         );
-         return;
-      }
-
       const payload = {
          orderId,
          userId,
@@ -68,31 +55,29 @@ class PaymentEventHandler {
          `📤 Writing PaymentSucceeded event to outbox for order: ${orderId}`
       );
 
-      await outboxRepository.createOutboxEntry({
-         aggregateId: orderId,
-         aggregateType: "Payment",
-         eventType: EVENTS.PAYMENT_SUCCEEDED,
-         payload,
-      });
+      try {
+         await outboxRepository.createOutboxEntry({
+            aggregateId: orderId,
+            aggregateType: "Payment",
+            eventType: EVENTS.PAYMENT_SUCCEEDED,
+            payload,
+         });
+      } catch (err) {
+         // Handle duplicate key error (idempotency)
+         if (err.code === 11000) {
+            console.log(
+               `⚠️ PaymentSucceeded event already exists for order: ${orderId}, skipping`
+            );
+            return;
+         }
+         throw err;
+      }
    }
 
    /**
     * Publish payment failed event via outbox
     */
    async publishPaymentFailed(orderId, userId, reason, items) {
-      // Check if event already exists in outbox (idempotency)
-      const existingEvent = await Outbox.findOne({
-         aggregateId: orderId,
-         eventType: EVENTS.PAYMENT_FAILED,
-      });
-
-      if (existingEvent) {
-         console.log(
-            `⚠️ PaymentFailed event already exists for order: ${orderId}, skipping`
-         );
-         return;
-      }
-
       const event = {
          orderId,
          userId,
@@ -105,12 +90,23 @@ class PaymentEventHandler {
          `📤 Writing PaymentFailed event to outbox for order: ${orderId}`
       );
 
-      await Outbox.create({
-         aggregateId: orderId,
-         aggregateType: "Payment",
-         eventType: EVENTS.PAYMENT_FAILED,
-         payload: JSON.stringify(event),
-      });
+      try {
+         await Outbox.create({
+            aggregateId: orderId,
+            aggregateType: "Payment",
+            eventType: EVENTS.PAYMENT_FAILED,
+            payload: JSON.stringify(event),
+         });
+      } catch (err) {
+         // Handle duplicate key error (idempotency)
+         if (err.code === 11000) {
+            console.log(
+               `⚠️ PaymentFailed event already exists for order: ${orderId}, skipping`
+            );
+            return;
+         }
+         throw err;
+      }
    }
 
    async close() {

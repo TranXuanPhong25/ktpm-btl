@@ -77,6 +77,7 @@ class RabbitMQPublisher {
             persistent: true,
             contentType: "application/json",
             timestamp: Date.now(),
+            messageId: `${message.aggregateId}-${message.eventType}`, // Idempotency key
          }
       );
 

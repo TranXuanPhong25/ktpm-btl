@@ -63,19 +63,6 @@ class OrderSaga {
 
       const orderId = order._id.toString();
 
-      // Check if event already exists in outbox (idempotency)
-      const existingEvent = await Outbox.findOne({
-         aggregateId: orderId,
-         eventType: EVENTS.ORDER_CREATED,
-      });
-
-      if (existingEvent) {
-         console.log(
-            `⚠️ OrderCreated event already exists for order: ${orderId}, skipping`
-         );
-         return;
-      }
-
       const event = {
          orderId,
          userId: order.userId,
@@ -84,13 +71,24 @@ class OrderSaga {
          timestamp: new Date().toISOString(),
       };
 
-      // Write to outbox instead of direct publish
-      await Outbox.create({
-         aggregateId: orderId,
-         aggregateType: "Order",
-         eventType: EVENTS.ORDER_CREATED,
-         payload: JSON.stringify(event),
-      });
+      try {
+         // Write to outbox - unique constraint will prevent duplicates
+         await Outbox.create({
+            aggregateId: orderId,
+            aggregateType: "Order",
+            eventType: EVENTS.ORDER_CREATED,
+            payload: JSON.stringify(event),
+         });
+      } catch (err) {
+         // Handle duplicate key error (idempotency)
+         if (err.code === 11000) {
+            console.log(
+               `⚠️ OrderCreated event already exists for order: ${orderId}, skipping`
+            );
+            return;
+         }
+         throw err;
+      }
    }
 
    async publishOrderPlaced(order) {
@@ -100,19 +98,6 @@ class OrderSaga {
 
       const orderId = order._id.toString();
 
-      // Check if event already exists in outbox (idempotency)
-      const existingEvent = await Outbox.findOne({
-         aggregateId: orderId,
-         eventType: EVENTS.ORDER_PLACED,
-      });
-
-      if (existingEvent) {
-         console.log(
-            `⚠️ OrderPlaced event already exists for order: ${orderId}, skipping`
-         );
-         return;
-      }
-
       const event = {
          orderId,
          userId: order.userId,
@@ -121,13 +106,24 @@ class OrderSaga {
          timestamp: new Date().toISOString(),
       };
 
-      // Write to outbox instead of direct publish
-      await Outbox.create({
-         aggregateId: orderId,
-         aggregateType: "Order",
-         eventType: EVENTS.ORDER_PLACED,
-         payload: JSON.stringify(event),
-      });
+      try {
+         // Write to outbox - unique constraint will prevent duplicates
+         await Outbox.create({
+            aggregateId: orderId,
+            aggregateType: "Order",
+            eventType: EVENTS.ORDER_PLACED,
+            payload: JSON.stringify(event),
+         });
+      } catch (err) {
+         // Handle duplicate key error (idempotency)
+         if (err.code === 11000) {
+            console.log(
+               `⚠️ OrderPlaced event already exists for order: ${orderId}, skipping`
+            );
+            return;
+         }
+         throw err;
+      }
    }
    async publishOrderFailed(order, session) {
       if (!this.isInitialized) {
@@ -135,19 +131,6 @@ class OrderSaga {
       }
 
       const orderId = order._id.toString();
-
-      // Check if event already exists in outbox (idempotency)
-      const existingEvent = await Outbox.findOne({
-         aggregateId: orderId,
-         eventType: EVENTS.ORDER_FAILED,
-      });
-
-      if (existingEvent) {
-         console.log(
-            `⚠️ OrderFailed event already exists for order: ${orderId}, skipping`
-         );
-         return;
-      }
 
       const event = {
          orderId,
@@ -158,16 +141,27 @@ class OrderSaga {
          timestamp: new Date().toISOString(),
       };
 
-      // Write to outbox instead of direct publish
-      await Outbox.create(
-         {
-            aggregateId: orderId,
-            aggregateType: "Order",
-            eventType: EVENTS.ORDER_FAILED,
-            payload: JSON.stringify(event),
-         },
-         session
-      );
+      try {
+         // Write to outbox - unique constraint will prevent duplicates
+         await Outbox.create(
+            {
+               aggregateId: orderId,
+               aggregateType: "Order",
+               eventType: EVENTS.ORDER_FAILED,
+               payload: JSON.stringify(event),
+            },
+            session
+         );
+      } catch (err) {
+         // Handle duplicate key error (idempotency)
+         if (err.code === 11000) {
+            console.log(
+               `⚠️ OrderFailed event already exists for order: ${orderId}, skipping`
+            );
+            return;
+         }
+         throw err;
+      }
    }
 
    async startListening() {

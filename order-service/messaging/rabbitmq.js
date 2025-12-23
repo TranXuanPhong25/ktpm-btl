@@ -1,4 +1,5 @@
 const amqp = require("amqplib");
+const ProcessedMessage = require("../models/processedMessage");
 
 class RabbitMQConnection {
    constructor() {
@@ -81,7 +82,36 @@ class RabbitMQConnection {
             if (msg) {
                try {
                   const content = JSON.parse(msg.content.toString());
+                  const messageId = msg.properties.messageId || 
+                     `${content.aggregateId}-${content.eventType}-${msg.properties.timestamp}`;
+                  
+                  // Check if message already processed (idempotency)
+                  const alreadyProcessed = await ProcessedMessage.findOne({ messageId });
+                  if (alreadyProcessed) {
+                     console.log(`⚠️ Message ${messageId} already processed, skipping`);
+                     this.channel.ack(msg);
+                     return;
+                  }
+
+                  // Process the message
                   await onMessage(content, msg);
+                  
+                  // Mark message as processed
+                  try {
+                     await ProcessedMessage.create({
+                        messageId,
+                        eventType: content.eventType,
+                        aggregateId: content.aggregateId,
+                     });
+                  } catch (err) {
+                     // Handle duplicate key error (race condition)
+                     if (err.code === 11000) {
+                        console.log(`⚠️ Message ${messageId} was processed concurrently, skipping`);
+                     } else {
+                        throw err;
+                     }
+                  }
+                  
                   this.channel.ack(msg);
                } catch (error) {
                   console.error("Error processing message:", error);

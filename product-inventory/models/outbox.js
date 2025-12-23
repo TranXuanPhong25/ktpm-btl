@@ -64,6 +64,10 @@ const Outbox = sequelize.define(
       timestamps: true,
       indexes: [
          {
+            fields: ["aggregateId", "eventType"],
+            unique: true, // Prevent duplicate events (idempotency)
+         },
+         {
             fields: ["aggregateId"],
          },
          {
