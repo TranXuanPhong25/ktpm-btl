@@ -127,8 +127,8 @@ services:
       volumes:
          - ./product-catalog:/app
       depends_on:
-         mongo-products:
-            condition: service_started
+         mongo-replica-init:
+            condition: service_completed_successfully
          redis-product:
             condition: service_started
          rabbitmq:
@@ -352,8 +352,8 @@ services:
       volumes:
          - ./order-service:/app
       depends_on:
-         mongo-orders:
-            condition: service_started
+         mongo-replica-init:
+            condition: service_completed_successfully
          rabbitmq:
             condition: service_healthy
       deploy:
@@ -708,6 +708,34 @@ services:
             limits:
                cpus: "0.5"
                memory: 512M
+
+   mongo-replica-init:
+      image: mongo:latest
+      container_name: mongo-replica-init
+      networks:
+         - ecommerce-network
+      depends_on:
+         mongo-products:
+            condition: service_started
+         mongo-orders:
+            condition: service_started
+      entrypoint: |
+         bash -c '
+         sleep 10
+         echo "Initializing mongo-products replica set..."
+         mongosh --host mongo-products:27017 --eval "rs.initiate({_id: \"rs0\", members: [{_id: 0, host: \"mongo-products:27017\"}]})" || true
+
+         echo "Initializing mongo-orders replica set..."
+         mongosh --host mongo-orders:27017 --eval "rs.initiate({_id: \"rs0\", members: [{_id: 0, host: \"mongo-orders:27017\"}]})" || true
+
+         echo "Replica set initialization completed!"
+         '
+      deploy:
+         resources:
+            limits:
+               cpus: "0.5"
+               memory: 256M
+      restart: no
 
    products-inventory-pg:
       image: postgres:15-alpine
