@@ -62,7 +62,7 @@ class ProductEventHandler {
             stock,
          });
 
-         console.log(`✅ Inventory record created for product: ${id}`);
+         console.log(`Inventory record created for product: ${id}`);
       } catch (error) {
          console.error("Error handling product created event:", error.message);
          throw error;
@@ -75,7 +75,7 @@ class ProductEventHandler {
       try {
          await productService.deleteProduct(payload.id);
 
-         console.log(`✅ Inventory record deleted for product: ${payload.id}`);
+         console.log(`Inventory record deleted for product: ${payload.id}`);
       } catch (error) {
          console.error("Error handling product deleted event:", error.message);
          throw error;

@@ -6,5 +6,5 @@ docker compose up  \
   order-relay-publisher \
   payment-relay-publisher \
   inventory-relay-publisher \
-  inventory-catalog-sync
+  inventory-catalog-sync --build
 

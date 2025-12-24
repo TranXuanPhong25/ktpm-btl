@@ -18,6 +18,7 @@ class Database {
             maxIdleTimeMS: 30000,
             serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
+            readPreference: "primary",
          };
 
          this.connection = await mongoose.connect(mongoURI, options);

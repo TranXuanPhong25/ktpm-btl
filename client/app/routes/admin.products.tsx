@@ -213,7 +213,7 @@ export default function AdminProducts() {
          description: `This is an amazing product with incredible features that you won't find anywhere else. Perfect for your needs!`,
          price: Math.floor(Math.random() * 50000) / 100,
          category: categories[Math.floor(Math.random() * categories.length)],
-         stock: Math.floor(Math.random() * 100) + 1,
+         stock: Math.floor(Math.random() * 100) + 9999999,
       };
 
       setSubmitting(true);
@@ -371,7 +371,7 @@ export default function AdminProducts() {
                            disabled={submitting}
                            className="bg-yellow-400 text-black py-4 px-6 border-4 border-black font-black uppercase text-lg hover:bg-yellow-300 transition-all shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[3px] hover:translate-y-[3px] disabled:bg-gray-400 disabled:border-gray-400 disabled:cursor-not-allowed disabled:shadow-none active:shadow-none active:translate-x-[6px] active:translate-y-[6px] whitespace-nowrap"
                         >
-                           🎲 Random
+                           Random
                         </button>
                      </div>
                   </form>

@@ -26,10 +26,7 @@ const sendEmail = async (to, subject, text) => {
       const shouldSend = process.env.NODE_ENV !== "test";
 
       if (!shouldSend) {
-         console.log(
-            `Skipping email send in test environment. To: ${to}, Subject: ${subject}, Text: ${text}`
-         );
-         await wait(5000);
+         await wait(3000);
          return;
       }
       await transporter.sendMail(mailOptions);

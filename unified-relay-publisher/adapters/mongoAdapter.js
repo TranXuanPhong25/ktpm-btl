@@ -27,7 +27,7 @@ class MongoAdapter extends DatabaseAdapter {
          this.defineOutboxModel();
 
          this.connected = true;
-         console.log("✓ MongoDB connected successfully");
+         console.log("MongoDB connected successfully");
       } catch (error) {
          console.error("Failed to connect to MongoDB:", error.message);
          throw error;
@@ -72,7 +72,7 @@ class MongoAdapter extends DatabaseAdapter {
       // Create indexes
       outboxSchema.index({ expireAt: 1 }, { expireAfterSeconds: 0 });
       outboxSchema.index({ status: 1, createdAt: 1 });
-
+      outboxSchema.index({ aggregateId: 1, eventType: 1 });
       // Check if model already exists (to avoid OverwriteModelError)
       this.Outbox =
          mongoose.models.Outbox || mongoose.model("Outbox", outboxSchema);
@@ -97,6 +97,10 @@ class MongoAdapter extends DatabaseAdapter {
                },
             ],
          })
+            .select(
+               "aggregateId aggregateType eventType payload status retryCount maxRetries createdAt"
+            )
+            .lean()
             .sort({ createdAt: 1 })
             .limit(batchSize);
 
@@ -116,16 +120,18 @@ class MongoAdapter extends DatabaseAdapter {
          throw error;
       }
    }
-
    /**
     * Mark event as processed
     */
-   async markAsProcessed(eventId) {
+   async markAsProcessed(eventIds) {
       try {
-         await this.Outbox.findByIdAndUpdate(eventId, {
-            status: "PROCESSED",
-            processedAt: new Date(),
-         });
+         await this.Outbox.updateMany(
+            { _id: { $in: eventIds } },
+            {
+               status: "PROCESSED",
+               processedAt: new Date(),
+            }
+         );
       } catch (error) {
          console.error("Error marking event as processed:", error.message);
          throw error;
@@ -221,7 +227,7 @@ class MongoAdapter extends DatabaseAdapter {
             await mongoose.connection.close();
          }
          this.connected = false;
-         console.log("✓ MongoDB disconnected");
+         console.log("MongoDB disconnected");
       } catch (error) {
          console.error("Error disconnecting from MongoDB:", error.message);
       }

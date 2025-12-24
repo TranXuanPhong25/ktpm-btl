@@ -7,6 +7,14 @@ const router = express.Router();
 router.post("/:userId", async (req, res) => {
    const { userId } = req.params;
    const { items } = req.body;
+
+   // Validate items exists and is an array
+   if (!items || !Array.isArray(items) || items.length === 0) {
+      return res
+         .status(400)
+         .json({ msg: "Items array is required and must not be empty" });
+   }
+
    const uniqueItems = new Set(items.map((item) => item.productId));
    if (uniqueItems.size !== items.length) {
       return res
@@ -17,6 +25,7 @@ router.post("/:userId", async (req, res) => {
       const order = await orderService.placeOrder(userId, items);
       res.status(201).json(order);
    } catch (err) {
+      console.error(err);
       if (
          err.message.includes("required") ||
          err.message.includes("Invalid") ||

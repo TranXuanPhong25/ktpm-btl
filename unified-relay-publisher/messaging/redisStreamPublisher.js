@@ -33,7 +33,7 @@ class RedisStreamPublisher {
 
          // Handle connection events
          this.client.on("connect", () => {
-            console.log("✓ Redis Streams connected successfully");
+            console.log("Redis Streams connected successfully");
             this.isConnected = true;
          });
 
@@ -168,7 +168,7 @@ class RedisStreamPublisher {
             await this.client.quit();
          }
          this.isConnected = false;
-         console.log("✓ Redis connection closed");
+         console.log("Redis connection closed");
       } catch (error) {
          console.error("Error closing Redis connection:", error.message);
       }

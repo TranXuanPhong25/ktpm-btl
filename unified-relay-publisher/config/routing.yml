@@ -52,26 +52,28 @@ routing_keys:
         - type: "rabbitmq"
           exchange: "inventory_exchange"
           routing_key: "inventory.reserved"
-        - type: "redis_stream"
-          stream_key: "inventory:stock_updates"
+        # - type: "redis_stream"
+        #   stream_key: "inventory:stock_updates"
 
    - event_type: "inventory.restored"
      sinks:
         - type: "rabbitmq"
           exchange: "inventory_exchange"
           routing_key: "inventory.restored"
-        - type: "redis_stream"
-          stream_key: "inventory:stock_updates"
+        # - type: "redis_stream"
+        #   stream_key: "inventory:stock_updates"
 
    - event_type: "inventory.failed"
      sinks:
         - type: "rabbitmq"
           exchange: "inventory_exchange"
           routing_key: "inventory.failed"
-   - event_type: "stock.updated"
+
+   - event_type: "inventory.stock.updated"
      sinks:
-        - type: "redis_stream"
-          stream_key: "inventory:stock_updates"
+        - type: "rabbitmq"
+          exchange: "inventory_exchange"
+          routing_key: "inventory.stock.updated"
 
    # Product catalog events
    - event_type: "product.created"

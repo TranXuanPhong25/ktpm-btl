@@ -71,7 +71,7 @@ class OrderEventHandler {
          async (event) => {
             try {
                if (event.eventType === EVENTS.ORDER_PLACED) {
-                  await this.handleOrderSuccessful(event);
+                  await this.handleOrderPlaced(event);
                } else if (event.eventType === EVENTS.ORDER_FAILED) {
                   await this.handleOrderFailed(event);
                } else if (event.eventType === EVENTS.ORDER_CREATED) {
@@ -120,7 +120,7 @@ class OrderEventHandler {
 
          await sendEmail(userEmail, subject, text);
 
-         console.log(`✓ Order success notification sent for order: ${orderId}`);
+         console.log(`Order success notification sent for order: ${orderId}`);
       } catch (error) {
          console.error(
             `Failed to send notification for order ${orderId}:`,

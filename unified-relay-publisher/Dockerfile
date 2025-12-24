@@ -17,5 +17,4 @@ RUN mkdir -p /app/config
 # Run as non-root user
 USER bun
 
-# Start the service
-CMD ["bun", "run", "index.js"]
+CMD ["npm", "run", "dev"]

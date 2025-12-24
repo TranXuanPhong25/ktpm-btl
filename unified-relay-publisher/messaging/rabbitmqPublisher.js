@@ -21,7 +21,7 @@ class RabbitMQPublisher {
          this.channel = await this.connection.createChannel();
          this.isConnected = true;
 
-         console.log("✓ RabbitMQ connected successfully");
+         console.log("RabbitMQ connected successfully");
 
          // Handle connection errors
          this.connection.on("error", (err) => {
@@ -53,7 +53,7 @@ class RabbitMQPublisher {
       await this.channel.assertExchange(exchangeName, exchangeType, {
          durable: true,
       });
-      console.log(`  ✓ Exchange '${exchangeName}' asserted`);
+      console.log(`  Exchange '${exchangeName}' asserted`);
    }
 
    /**
@@ -99,7 +99,7 @@ class RabbitMQPublisher {
             await this.connection.close();
          }
          this.isConnected = false;
-         console.log("✓ RabbitMQ connection closed");
+         console.log("RabbitMQ connection closed");
       } catch (error) {
          console.error("Error closing RabbitMQ connection:", error.message);
       }

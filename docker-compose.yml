@@ -111,7 +111,7 @@ services:
          - products-inventory-pg
          - rabbitmq
       deploy:
-         replicas: 1
+         replicas: 2
          resources:
             limits:
                cpus: "1.0"
@@ -134,7 +134,7 @@ services:
          rabbitmq:
             condition: service_healthy
       deploy:
-         replicas: 1
+         replicas: 2
          resources:
             limits:
                cpus: "1.0"
@@ -153,6 +153,15 @@ services:
       depends_on:
          - product-catalog
          - jaeger
+      ulimits:
+         nofile:
+            soft: 65536
+            hard: 65536
+      deploy:
+         resources:
+            limits:
+               cpus: "2.0"
+               memory: 512mb
       command:
          [
             "envoy",
@@ -162,6 +171,8 @@ services:
             "product-catalog-proxy",
             "--log-level",
             "info",
+            "--concurrency",
+            "4",
          ]
 
    inventory-catalog-sync:
@@ -196,8 +207,9 @@ services:
          - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
          - REDIS_URI=redis://redis-product:6379
          - POLL_INTERVAL_MS=500
-         - BATCH_SIZE=100
+         - BATCH_SIZE=360
       volumes:
+         - ./unified-relay-publisher:/app
          - ./unified-relay-publisher/config/routing.yml:/app/config/routing.yml:ro
       networks:
          - ecommerce-network
@@ -228,6 +240,15 @@ services:
       depends_on:
          - product-inventory
          - jaeger
+      ulimits:
+         nofile:
+            soft: 65536
+            hard: 65536
+      deploy:
+         resources:
+            limits:
+               cpus: "2.0"
+               memory: 512mb
       command:
          [
             "envoy",
@@ -237,6 +258,8 @@ services:
             "product-inventory-proxy",
             "--log-level",
             "info",
+            "--concurrency",
+            "4",
          ]
 
    redis-product:
@@ -334,7 +357,7 @@ services:
          rabbitmq:
             condition: service_healthy
       deploy:
-         replicas: 1
+         replicas: 2
          resources:
             limits:
                cpus: "1.0"
@@ -353,6 +376,16 @@ services:
       depends_on:
          - order-service
          - jaeger
+      # Increase file descriptor limits to handle high concurrency
+      ulimits:
+         nofile:
+            soft: 65536
+            hard: 65536
+      deploy:
+         resources:
+            limits:
+               cpus: "2.0"
+               memory: 512mb
       command:
          [
             "envoy",
@@ -362,6 +395,8 @@ services:
             "order-service-proxy",
             "--log-level",
             "info",
+            "--concurrency",
+            "4",
          ]
 
    # debezium-order-outbox-server:
@@ -398,8 +433,9 @@ services:
          - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
          - REDIS_URI=redis://redis-product:6379
          - POLL_INTERVAL_MS=500
-         - BATCH_SIZE=100
+         - BATCH_SIZE=360
       volumes:
+         - ./unified-relay-publisher:/app
          - ./unified-relay-publisher/config/routing.yml:/app/config/routing.yml:ro
       networks:
          - ecommerce-network
@@ -427,8 +463,9 @@ services:
          - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
          - REDIS_URI=redis://redis-product:6379
          - POLL_INTERVAL_MS=500
-         - BATCH_SIZE=100
+         - BATCH_SIZE=360
       volumes:
+         - ./unified-relay-publisher:/app
          - ./unified-relay-publisher/config/routing.yml:/app/config/routing.yml:ro
       networks:
          - ecommerce-network
@@ -456,11 +493,12 @@ services:
          - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
          - REDIS_URI=redis://redis-product:6379
          - POLL_INTERVAL_MS=500
-         - BATCH_SIZE=100
+         - BATCH_SIZE=360
          - CLEANUP_INTERVAL_HOURS=12
          - RETENTION_HOURS=24
          - MAX_
       volumes:
+         - ./unified-relay-publisher:/app
          - ./unified-relay-publisher/config/routing.yml:/app/config/routing.yml:ro
       networks:
          - ecommerce-network
@@ -525,6 +563,8 @@ services:
          - NODEMAILER_EMAIL=${NODEMAILER_EMAIL}
          - NODEMAILER_PASSWORD=${NODEMAILER_PASSWORD}
          - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
+         - NODE_ENV=test
+         - SIMULATE_EMAIL_ERROR=true
       ports:
          - "51111:5005"
       volumes:
@@ -641,18 +681,19 @@ services:
          - mongo-orders-data:/data/db
       networks:
          - ecommerce-network
-      command: ["--replSet", "rs0", "--bind_ip_all"]
+      command:
+         ["--replSet", "rs0", "--bind_ip_all", "--wiredTigerCacheSizeGB", "1"]
       healthcheck:
          test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet | grep -q 1
          interval: 10s
          timeout: 5s
-         retries: 5
+         retries: 2
          start_period: 30s
       deploy:
          resources:
             limits:
-               cpus: "0.5"
-               memory: 512M
+               cpus: "3.0"
+               memory: 2048M
 
    mongo-payments:
       image: mongo:latest

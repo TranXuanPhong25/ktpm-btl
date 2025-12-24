@@ -22,7 +22,7 @@ class RoutingConfigLoader {
          // Validate configuration
          this.validate();
 
-         console.log(`✓ Routing configuration loaded from ${this.configPath}`);
+         console.log(`Routing configuration loaded from ${this.configPath}`);
          console.log(
             `  - ${this.config.routing_keys?.length || 0} routing rules defined`
          );

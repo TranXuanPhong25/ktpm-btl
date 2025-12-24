@@ -14,6 +14,9 @@ app.use(express.json());
 // routes
 app.use("/api/orders", orderRoutes);
 
+app.get("/health", (req, res) => {
+   res.status(200).send("OK");
+});
 // Database connection and server start
 const mongoURI =
    process.env.MONGO_URI || "mongodb://localhost:27017/ecommerce-orders";

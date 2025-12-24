@@ -29,7 +29,7 @@ class PaymentEventHandler {
          // Start listening
 
          this.isInitialized = true;
-         console.log("✓ Payment Event Handler initialized successfully");
+         console.log("Payment Event Handler initialized successfully");
       } catch (error) {
          console.error(
             "Failed to initialize Payment Event Handler:",

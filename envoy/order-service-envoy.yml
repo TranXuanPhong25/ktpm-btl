@@ -11,17 +11,17 @@ static_resources:
                   typed_config:
                      "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
                      stat_prefix: ingress_http
-                     tracing:
-                        provider:
-                           name: envoy.tracers.opentelemetry
-                           typed_config:
-                              "@type": type.googleapis.com/envoy.config.trace.v3.OpenTelemetryConfig
-                              grpc_service:
-                                 envoy_grpc:
-                                    cluster_name: jaeger
-                              service_name: order-service
-                        random_sampling:
-                           value: 100.0
+                     # tracing:
+                     #    provider:
+                     #       name: envoy.tracers.opentelemetry
+                     #       typed_config:
+                     #          "@type": type.googleapis.com/envoy.config.trace.v3.OpenTelemetryConfig
+                     #          grpc_service:
+                     #             envoy_grpc:
+                     #                cluster_name: jaeger
+                     #          service_name: order-service
+                     #    random_sampling:
+                     #       value: 1.0
                      route_config:
                         name: local_route
                         virtual_hosts:
@@ -32,8 +32,10 @@ static_resources:
                                   route:
                                      cluster: order_service
                                      timeout: 30s
+                                     idle_timeout: 30s
                                      retry_policy:
-                                        retry_on: "connect-failure,refused-stream"
+                                        retry_on: "connect-failure,refused-stream,unavailable,retriable-status-codes"
+                                        retriable_status_codes: [503]
                                         num_retries: 3
                                         per_try_timeout: 10s
                                   decorator:
@@ -44,11 +46,53 @@ static_resources:
                              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
                      use_remote_address: true
                      generate_request_id: true
+                     access_log:
+                        - name: envoy.access_loggers.stdout
+                          typed_config:
+                             "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
+                             log_format:
+                                json_format:
+                                   service: "order-service"
+                                   timestamp: "%START_TIME%"
+                                   method: "%REQ(:METHOD)%"
+                                   path: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"
+                                   protocol: "%PROTOCOL%"
+                                   response_code: "%RESPONSE_CODE%"
+                                   response_flags: "%RESPONSE_FLAGS%"
+                                   bytes_received: "%BYTES_RECEIVED%"
+                                   bytes_sent: "%BYTES_SENT%"
+                                   duration_ms: "%DURATION%"
+                                   upstream_service_time: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"
+                                   x_forwarded_for: "%REQ(X-FORWARDED-FOR)%"
+                                   user_agent: "%REQ(USER-AGENT)%"
+                                   request_id: "%REQ(X-REQUEST-ID)%"
+                                   authority: "%REQ(:AUTHORITY)%"
+                                   upstream_host: "%UPSTREAM_HOST%"
+                                   upstream_cluster: "%UPSTREAM_CLUSTER%"
+                                   upstream_local_address: "%UPSTREAM_LOCAL_ADDRESS%"
+                                   downstream_local_address: "%DOWNSTREAM_LOCAL_ADDRESS%"
+                                   downstream_remote_address: "%DOWNSTREAM_REMOTE_ADDRESS%"
+                                   route_name: "%ROUTE_NAME%"
    clusters:
       - name: order_service
-        connect_timeout: 0.25s
+        connect_timeout: 5s
         type: strict_dns
-        lb_policy: round_robin
+        lb_policy: least_request
+
+        circuit_breakers:
+           thresholds:
+              - priority: DEFAULT
+                max_connections: 10000
+                max_pending_requests: 20000
+                max_requests: 20000
+                max_retries: 3
+        health_checks:
+           - timeout: 30s
+             interval: 10s
+             unhealthy_threshold: 3
+             healthy_threshold: 2
+             http_health_check:
+                path: "/health"
         load_assignment:
            cluster_name: order_service
            endpoints:
