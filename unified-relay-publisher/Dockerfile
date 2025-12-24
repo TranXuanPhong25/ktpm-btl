@@ -1,12 +1,12 @@
-FROM node:20-alpine
+FROM oven/bun:1.1-alpine
 
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json bun.lock* ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN bun install --frozen-lockfile --production
 
 # Copy application code
 COPY . .
@@ -15,7 +15,6 @@ COPY . .
 RUN mkdir -p /app/config
 
 # Run as non-root user
-USER node
+USER bun
 
-# Start the service
 CMD ["npm", "run", "dev"]
