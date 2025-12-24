@@ -127,11 +127,11 @@ class OrderSaga {
 
             if (currentStatus === "PLACED") {
                console.log(
-                  `📦 Inventory reserved for order ${orderId}, but status is already 'Placed' - ignoring (Race condition handled)`
+                  `Inventory reserved for order ${orderId}, but status is already 'Placed' - ignoring (Race condition handled)`
                );
             } else {
                console.warn(
-                  `⚠️ Inventory reserved for order ${orderId}, but status is '${currentStatus}' (expected 'Processing') - ignoring`
+                  `Inventory reserved for order ${orderId}, but status is '${currentStatus}' (expected 'Processing') - ignoring`
                );
             }
             return;
@@ -200,7 +200,7 @@ class OrderSaga {
             },
          });
          console.log(
-            `↩️ Inventory reservation failed for already 'Placed' order ${orderId} - order marked as 'Failed' for refund`
+            `Inventory reservation failed for already 'Placed' order ${orderId} - order marked as 'Failed' for refund`
          );
          return;
       }
@@ -238,7 +238,7 @@ class OrderSaga {
             if (updatedOrder) {
                if (!updatedOrder.skipped) {
                   console.log(
-                     `💰 Payment succeeded for order ${orderId}, status 'CREATED' -> 'PLACED'`
+                     `Payment succeeded for order ${orderId}, status 'CREATED' -> 'PLACED'`
                   );
                }
                return;
@@ -271,7 +271,7 @@ class OrderSaga {
             if (updatedOrder) {
                if (!updatedOrder.skipped) {
                   console.log(
-                     `💰 Payment succeeded for order ${orderId}, status 'PROCESSING' -> 'PLACED' (Inventory might be lagging)`
+                     `Payment succeeded for order ${orderId}, status 'PROCESSING' -> 'PLACED' (Inventory might be lagging)`
                   );
                }
                return;
@@ -283,7 +283,7 @@ class OrderSaga {
 
             if (currentStatus === "PLACED") {
                console.log(
-                  `💰 Payment succeeded for order ${orderId}, but already 'PLACED' - ignoring`
+                  `Payment succeeded for order ${orderId}, but already 'PLACED' - ignoring`
                );
                return;
             }
@@ -305,7 +305,7 @@ class OrderSaga {
                },
             });
             console.log(
-               `📤 ORDER_FAILED event written to outbox for order ${orderId} (paymentId ${paymentId}) – reason: ${reason}`
+               `ORDER_FAILED event written to outbox for order ${orderId} (paymentId ${paymentId}) – reason: ${reason}`
             );
             return;
          } catch (err) {
@@ -317,7 +317,7 @@ class OrderSaga {
                const delay =
                   baseDelay * Math.pow(2, attempt) + Math.random() * 50;
                console.warn(
-                  `⚠️ Write conflict for payment succeeded ${orderId}, retrying (${attempt + 1}/${maxRetries}) after ${delay.toFixed(0)}ms`
+                  `Write conflict for payment succeeded ${orderId}, retrying (${attempt + 1}/${maxRetries}) after ${delay.toFixed(0)}ms`
                );
                await new Promise((resolve) => setTimeout(resolve, delay));
                continue;
@@ -330,7 +330,7 @@ class OrderSaga {
 
             if (isWriteConflict && attempt === maxRetries) {
                console.error(
-                  `❌ Max retries (${maxRetries}) exceeded for payment succeeded ${orderId}`
+                  `Max retries (${maxRetries}) exceeded for payment succeeded ${orderId}`
                );
             }
             throw err;
