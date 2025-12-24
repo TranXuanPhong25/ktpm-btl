@@ -117,11 +117,7 @@ class OrderSaga {
                   }
                );
 
-            if (updatedOrder) {
-               if (updatedOrder.skipped) return; // Idempotency handled
-               console.log(
-                  `📦 Inventory reserved for order ${orderId}, status was 'Processing' -> 'Created'`
-               );
+            if (updatedOrder || updatedOrder.skipped) {
                return;
             }
             // If update failed, it means status was NOT 'Processing' (or order missing)

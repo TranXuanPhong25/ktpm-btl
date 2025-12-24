@@ -92,7 +92,7 @@ class OutboxPublisher {
             );
          }
          // Adaptive batching logic
-         if (pendingEvents.length < this.batchSize / 2) {
+         if (pendingEvents.length < this.dynamicBatchSize / 2) {
             this.dynamicBatchSize = Math.max(
                Math.floor(this.dynamicBatchSize / 2),
                this.batchSize / 5
@@ -121,6 +121,9 @@ class OutboxPublisher {
          for (let i = 0; i < pendingEvents.length; i += PARALLEL_BATCH_SIZE) {
             const batch = pendingEvents.slice(i, i + PARALLEL_BATCH_SIZE);
             await Promise.all(batch.map((event) => this.publishEvent(event)));
+            await this.databaseAdapter.markAsProcessed(
+               batch.map((event) => event.id)
+            );
          }
 
          console.log(
@@ -173,7 +176,6 @@ class OutboxPublisher {
          );
          if (allSucceeded) {
             // Mark event as processed
-            await this.databaseAdapter.markAsProcessed(event.id);
             this.stats.totalProcessed++;
          } else {
             // At least one sink failed - increment retry

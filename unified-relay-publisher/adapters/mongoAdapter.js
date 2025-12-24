@@ -123,12 +123,15 @@ class MongoAdapter extends DatabaseAdapter {
    /**
     * Mark event as processed
     */
-   async markAsProcessed(eventId) {
+   async markAsProcessed(eventIds) {
       try {
-         await this.Outbox.findByIdAndUpdate(eventId, {
-            status: "PROCESSED",
-            processedAt: new Date(),
-         });
+         await this.Outbox.updateMany(
+            { _id: { $in: eventIds } },
+            {
+               status: "PROCESSED",
+               processedAt: new Date(),
+            }
+         );
       } catch (error) {
          console.error("Error marking event as processed:", error.message);
          throw error;
