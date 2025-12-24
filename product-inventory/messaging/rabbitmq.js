@@ -12,7 +12,7 @@ class RabbitMQConnection {
          this.connection = await amqp.connect(uri);
          this.channel = await this.connection.createChannel();
          // Set prefetch to process multiple messages concurrently
-         await this.channel.prefetch(100);
+         // await this.channel.prefetch(100);
          this.isConnected = true;
 
          console.log("RabbitMQ connected successfully");
