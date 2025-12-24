@@ -11,10 +11,11 @@ class OutboxPublisher {
       this.databaseAdapter = config.databaseAdapter;
       this.routingConfig = config.routingConfig;
       this.pollInterval = config.pollInterval || 500;
-      this.batchSize = config.batchSize || 100;
+      this.dynamicPollInterval = this.pollInterval;
+      this.batchSize = config.batchSize || 5000;
+      this.dynamicBatchSize = this.batchSize;
       this.isRunning = false;
-      this.pollTimer = null;
-
+      this.timerId = null;
       // Track which publishers are available
       this.publishers = {
          rabbitmq: rabbitmqPublisher,
@@ -46,13 +47,26 @@ class OutboxPublisher {
       }
 
       // Process immediately on start
-      await this.processPendingEvents();
+      // await this.processPendingEvents();
 
-      this.pollTimer = setInterval(() => {
-         this.processPendingEvents();
-      }, this.pollInterval);
+      // this.pollTimer = setInterval(() => {
+      //    this.processPendingEvents();
+      // }, this.pollInterval);
+      this.loop();
    }
 
+   async loop() {
+      await this.processPendingEvents();
+      this.timerId = setTimeout(() => this.loop(), this.dynamicPollInterval);
+   }
+
+   updatePollInterval(newInterval) {
+      this.dynamicPollInterval = newInterval;
+      if (this.timerId) {
+         clearTimeout(this.timerId);
+         // this.loop();
+      }
+   }
    /**
     * Process pending events from database
     */
@@ -65,21 +79,52 @@ class OutboxPublisher {
       }
 
       try {
+         const start = Date.now();
          const pendingEvents = await this.databaseAdapter.findPendingEvents(
-            this.batchSize
+            this.dynamicBatchSize
          );
-
+         const fetchDuration = Date.now() - start;
+         if (this.serviceName === "order") {
+            console.log(
+               "Polling with :",
+               this.dynamicBatchSize,
+               this.dynamicPollInterval
+            );
+         }
+         // Adaptive batching logic
+         if (pendingEvents.length < this.batchSize / 2) {
+            this.dynamicBatchSize = Math.max(
+               Math.floor(this.dynamicBatchSize / 2),
+               this.batchSize / 5
+            );
+            this.dynamicPollInterval = Math.min(
+               this.dynamicPollInterval * 2,
+               this.pollInterval * 5
+            );
+            this.updatePollInterval(this.dynamicPollInterval);
+         } else {
+            this.dynamicBatchSize = Math.min(
+               Math.floor(this.dynamicBatchSize * 2),
+               this.batchSize * 5
+            );
+            this.dynamicPollInterval = Math.max(
+               Math.floor(this.dynamicPollInterval / 2),
+               this.pollInterval / 10
+            );
+            this.updatePollInterval(this.dynamicPollInterval);
+         }
          if (pendingEvents.length === 0) {
             return;
          }
-
-         // Process each event
-         for (const event of pendingEvents) {
-            await this.publishEvent(event);
+         // Process events in parallel batches for better throughput
+         const PARALLEL_BATCH_SIZE = 50;
+         for (let i = 0; i < pendingEvents.length; i += PARALLEL_BATCH_SIZE) {
+            const batch = pendingEvents.slice(i, i + PARALLEL_BATCH_SIZE);
+            await Promise.all(batch.map((event) => this.publishEvent(event)));
          }
 
          console.log(
-            `✅ [${this.serviceName}] Processed ${pendingEvents.length} events`
+            `[${this.serviceName}] Fetch in ${fetchDuration}ms. Processed ${pendingEvents.length} events in ${Date.now() - start}ms. `
          );
       } catch (error) {
          console.error(
@@ -108,7 +153,6 @@ class OutboxPublisher {
             await this.databaseAdapter.markAsProcessed(event.id);
             return;
          }
-
          // Build message
          const message = {
             aggregateId: event.aggregateId,
@@ -127,7 +171,6 @@ class OutboxPublisher {
          const allSucceeded = publishResults.every(
             (result) => result.status === "fulfilled" && result.value === true
          );
-
          if (allSucceeded) {
             // Mark event as processed
             await this.databaseAdapter.markAsProcessed(event.id);
@@ -227,9 +270,9 @@ class OutboxPublisher {
     * Stop the publisher
     */
    async stop() {
-      if (this.pollTimer) {
-         clearInterval(this.pollTimer);
-         this.pollTimer = null;
+      if (this.timerId) {
+         clearTimeout(this.timerId);
+         this.timerId = null;
       }
       this.isRunning = false;
       console.log(`[${this.serviceName}] Outbox publisher stopped`);

@@ -72,7 +72,7 @@ class MongoAdapter extends DatabaseAdapter {
       // Create indexes
       outboxSchema.index({ expireAt: 1 }, { expireAfterSeconds: 0 });
       outboxSchema.index({ status: 1, createdAt: 1 });
-
+      outboxSchema.index({ aggregateId: 1, eventType: 1 });
       // Check if model already exists (to avoid OverwriteModelError)
       this.Outbox =
          mongoose.models.Outbox || mongoose.model("Outbox", outboxSchema);
@@ -97,6 +97,10 @@ class MongoAdapter extends DatabaseAdapter {
                },
             ],
          })
+            .select(
+               "aggregateId aggregateType eventType payload status retryCount maxRetries createdAt"
+            )
+            .lean()
             .sort({ createdAt: 1 })
             .limit(batchSize);
 
@@ -116,7 +120,6 @@ class MongoAdapter extends DatabaseAdapter {
          throw error;
       }
    }
-
    /**
     * Mark event as processed
     */

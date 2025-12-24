@@ -207,7 +207,7 @@ services:
          - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
          - REDIS_URI=redis://redis-product:6379
          - POLL_INTERVAL_MS=500
-         - BATCH_SIZE=100
+         - BATCH_SIZE=360
       volumes:
          - ./unified-relay-publisher:/app
          - ./unified-relay-publisher/config/routing.yml:/app/config/routing.yml:ro
@@ -433,7 +433,7 @@ services:
          - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
          - REDIS_URI=redis://redis-product:6379
          - POLL_INTERVAL_MS=500
-         - BATCH_SIZE=100
+         - BATCH_SIZE=360
       volumes:
          - ./unified-relay-publisher:/app
          - ./unified-relay-publisher/config/routing.yml:/app/config/routing.yml:ro
@@ -463,7 +463,7 @@ services:
          - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
          - REDIS_URI=redis://redis-product:6379
          - POLL_INTERVAL_MS=500
-         - BATCH_SIZE=100
+         - BATCH_SIZE=360
       volumes:
          - ./unified-relay-publisher:/app
          - ./unified-relay-publisher/config/routing.yml:/app/config/routing.yml:ro
@@ -493,7 +493,7 @@ services:
          - RABBITMQ_URI=amqp://admin:admin123@rabbitmq:5672
          - REDIS_URI=redis://redis-product:6379
          - POLL_INTERVAL_MS=500
-         - BATCH_SIZE=100
+         - BATCH_SIZE=360
          - CLEANUP_INTERVAL_HOURS=12
          - RETENTION_HOURS=24
          - MAX_

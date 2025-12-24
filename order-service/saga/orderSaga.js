@@ -93,9 +93,6 @@ class OrderSaga {
 
    async handleInventoryReserved(event) {
       const { aggregateId: orderId } = event;
-
-      // Try to transition from Processing -> Created using Atomic Conditional Update
-      // with retry logic for write conflicts
       const maxRetries = 5;
       const baseDelay = 50; // ms
       if (!orderId) {
@@ -127,7 +124,6 @@ class OrderSaga {
                );
                return;
             }
-
             // If update failed, it means status was NOT 'Processing' (or order missing)
             // We fetch just for logging purposes to understand what happened
             const currentOrder = await orderRepository.findById(orderId);

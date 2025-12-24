@@ -61,16 +61,17 @@ class InventorySyncWorker {
       this.consumeEvents();
 
       // Start periodic batch sync
-      this.syncInterval = setInterval(async () => {
-         await this.syncPendingUpdates();
-
-         // Monitor DLQ every 10 sync cycles (50 seconds)
-         if (Math.floor(Date.now() / 1000) % 50 === 0) {
-            await this.monitorDLQ();
-         }
-      }, this.batchSyncIntervalMs);
+      this.loop();
    }
+   async loop() {
+      await this.syncPendingUpdates();
 
+      // Monitor DLQ every 10 sync cycles (50 seconds)
+      if (Math.floor(Date.now() / 1000) % 50 === 0) {
+         await this.monitorDLQ();
+      }
+      setTimeout(() => this.loop(), this.batchSyncIntervalMs);
+   }
    async consumeEvents() {
       try {
          await this.rabbitMQ.consume(

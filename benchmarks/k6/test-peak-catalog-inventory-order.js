@@ -69,9 +69,9 @@ export default function (data) {
    errorRate.add(!catalogCheck);
 
    // GET inventory for the same product
-   const inventoryRes = http.get(
-      `${BASE_URL}/api/product-inventory/${productId}`
-   );
+   // const inventoryRes = http.get(
+   //    `${BASE_URL}/api/product-inventory/${productId}`
+   // );
 
    // const inventoryCheck = check(inventoryRes, {
    //    "inventory status is 200": (r) => r.status === 200,

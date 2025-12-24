@@ -1,9 +1,14 @@
 const orderRepository = require("../repositories/orderRepository");
 const axios = require("axios");
 const { EVENTS } = require("../messaging/constants");
-
+const http = require("http");
 const PRODUCT_CATALOG_SERVICE_URI =
    process.env.PRODUCT_CATALOG_SERVICE_URI || "http://localhost:5000";
+const agent = new http.Agent({
+   keepAlive: true,
+   maxSockets: 1000,
+   keepAliveMsecs: 10000,
+});
 
 class OrderService {
    /**
@@ -25,7 +30,8 @@ class OrderService {
       // Bulk get products from product-catalog service to validate and calculate total
       const productIds = items.map((item) => item.productId).join(",");
       const response = await axios.get(
-         `${PRODUCT_CATALOG_SERVICE_URI}/api/product-catalog/bulk/get?ids=${productIds}`
+         `${PRODUCT_CATALOG_SERVICE_URI}/api/product-catalog/bulk/get?ids=${productIds}`,
+         { httpAgent: agent }
       );
       const products = response.data;
 
@@ -64,7 +70,7 @@ class OrderService {
                userId,
                items: informativeItems,
                totalAmount,
-               status: "PENDING",
+               status: "PROCESSING",
             }),
          }
       );

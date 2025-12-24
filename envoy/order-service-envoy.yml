@@ -78,20 +78,21 @@ static_resources:
         connect_timeout: 5s
         type: strict_dns
         lb_policy: least_request
+
         circuit_breakers:
            thresholds:
               - priority: DEFAULT
-                max_connections: 2000
-                max_pending_requests: 2000
-                max_requests: 2000
-                max_retries: 10
+                max_connections: 10000
+                max_pending_requests: 20000
+                max_requests: 20000
+                max_retries: 3
         health_checks:
-           - timeout: 3s
+           - timeout: 30s
              interval: 10s
              unhealthy_threshold: 3
              healthy_threshold: 2
              http_health_check:
-                path: "/api/orders"
+                path: "/health"
         load_assignment:
            cluster_name: order_service
            endpoints:

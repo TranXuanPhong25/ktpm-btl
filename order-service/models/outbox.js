@@ -36,5 +36,5 @@ const outboxSchema = new mongoose.Schema({
 outboxSchema.index({ expireAt: 1 }, { expireAfterSeconds: 0 });
 // Index for efficient querying of pending events
 outboxSchema.index({ status: 1, createdAt: 1 });
-
+outboxSchema.index({ aggregateId: 1, eventType: 1 });
 module.exports = mongoose.model("Outbox", outboxSchema);
