@@ -42,7 +42,7 @@ class OutboxPublisher {
     */
    async start() {
       if (this.isRunning) {
-         console.log(`⚠️  [${this.serviceName}] Publisher is already running`);
+         console.log(`[${this.serviceName}] Publisher is already running`);
          return;
       }
 

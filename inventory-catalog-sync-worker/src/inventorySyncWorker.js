@@ -344,7 +344,7 @@ class InventorySyncWorker {
          await mongoose.connection.close();
       }
 
-      console.log("✓ Inventory sync worker stopped");
+      console.log("Inventory sync worker stopped");
    }
 }
 

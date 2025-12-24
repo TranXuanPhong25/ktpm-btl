@@ -113,7 +113,7 @@ async function shutdown() {
 
       process.exit(0);
    } catch (error) {
-      console.error("❌ Error during shutdown:", error);
+      console.error("Error during shutdown:", error);
       process.exit(1);
    }
 }

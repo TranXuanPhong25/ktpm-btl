@@ -41,7 +41,7 @@ class CartEventHandler {
          await this.startListening();
 
          this.isInitialized = true;
-         console.log("✓ Cart Event Handler initialized successfully");
+         console.log("Cart Event Handler initialized successfully");
       } catch (error) {
          console.error(
             "Failed to initialize Cart Event Handler:",

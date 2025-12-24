@@ -13,7 +13,7 @@ class RabbitMQConnection {
          this.channel = await this.connection.createChannel();
          this.isConnected = true;
 
-         console.log("✓ RabbitMQ connected successfully");
+         console.log("RabbitMQ connected successfully");
 
          // Handle connection errors
          this.connection.on("error", (err) => {

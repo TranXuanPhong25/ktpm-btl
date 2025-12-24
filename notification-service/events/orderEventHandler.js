@@ -120,7 +120,7 @@ class OrderEventHandler {
 
          await sendEmail(userEmail, subject, text);
 
-         console.log(`✓ Order success notification sent for order: ${orderId}`);
+         console.log(`Order success notification sent for order: ${orderId}`);
       } catch (error) {
          console.error(
             `Failed to send notification for order ${orderId}:`,

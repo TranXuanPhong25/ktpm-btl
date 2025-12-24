@@ -35,7 +35,7 @@ const redis = new Redis(
 );
 
 redis.on("connect", () => {
-   console.log("✓ Redis connected");
+   console.log("Redis connected");
 });
 
 redis.on("error", (err) => {
@@ -43,7 +43,7 @@ redis.on("error", (err) => {
 });
 
 redis.on("ready", () => {
-   console.log("✓ Redis ready to accept commands");
+   console.log("Redis ready to accept commands");
 });
 
 module.exports = redis;

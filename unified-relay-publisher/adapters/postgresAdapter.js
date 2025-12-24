@@ -37,7 +37,7 @@ class PostgresAdapter extends DatabaseAdapter {
          await this.Outbox.sync();
 
          this.connected = true;
-         console.log("✓ PostgreSQL connected successfully");
+         console.log("PostgreSQL connected successfully");
       } catch (error) {
          console.error("Failed to connect to PostgreSQL:", error.message);
          throw error;
@@ -309,7 +309,7 @@ class PostgresAdapter extends DatabaseAdapter {
             await this.sequelize.close();
          }
          this.connected = false;
-         console.log("✓ PostgreSQL disconnected");
+         console.log("PostgreSQL disconnected");
       } catch (error) {
          console.error("Error disconnecting from PostgreSQL:", error.message);
       }

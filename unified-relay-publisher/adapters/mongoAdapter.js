@@ -27,7 +27,7 @@ class MongoAdapter extends DatabaseAdapter {
          this.defineOutboxModel();
 
          this.connected = true;
-         console.log("✓ MongoDB connected successfully");
+         console.log("MongoDB connected successfully");
       } catch (error) {
          console.error("Failed to connect to MongoDB:", error.message);
          throw error;
@@ -227,7 +227,7 @@ class MongoAdapter extends DatabaseAdapter {
             await mongoose.connection.close();
          }
          this.connected = false;
-         console.log("✓ MongoDB disconnected");
+         console.log("MongoDB disconnected");
       } catch (error) {
          console.error("Error disconnecting from MongoDB:", error.message);
       }

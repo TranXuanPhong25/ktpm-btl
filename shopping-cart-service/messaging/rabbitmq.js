@@ -10,7 +10,7 @@ class RabbitMQConnection {
       try {
          this.connection = await amqp.connect(uri);
          this.channel = await this.connection.createChannel();
-         console.log("✓ RabbitMQ connected (Shopping Cart Service)");
+         console.log("RabbitMQ connected (Shopping Cart Service)");
 
          this.connection.on("error", (err) => {
             console.error("RabbitMQ connection error:", err.message);
